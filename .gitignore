@@ -1,0 +1,15 @@
+# Model dosyalari (HuggingFace'den indirilir)
+models/
+*.bin
+*.safetensors
+*.pt
+
+# Python
+__pycache__/
+*.pyc
+.env
+*.env
+
+# OS
+.DS_Store
+Thumbs.db

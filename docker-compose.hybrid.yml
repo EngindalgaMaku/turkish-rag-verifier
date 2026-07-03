@@ -1,0 +1,156 @@
+version: "3.9"
+
+# ============================================================
+# docker-compose.hybrid.yml — Hibrit Pipeline (CPU-only)
+# ============================================================
+# Kullanim:
+#   docker compose -f docker-compose.hybrid.yml up -d
+#
+# Ilk baslatmada NLI modeli HuggingFace'den indirilir (~1.5GB).
+# BERT modeli icin model dosyalarini ./models/bert/ klasorune koy.
+#
+# Coolify'da:
+#   - Bu dosyayi "Docker Compose" kaynak olarak sec
+#   - BERT_MODEL_DIR volume'unu Coolify storage ile bagla
+#   - HF_HOME volume'unu kalici yap (model tekrar indirilmesin)
+# ============================================================
+
+services:
+
+  # ----------------------------------------------------------
+  # BERT API — BERTurk EXP020 fine-tuned classifier
+  # RAM: ~1.5GB | CPU: orta | Port: 8001
+  # ----------------------------------------------------------
+  bert-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.hybrid
+    image: rag-hybrid:latest
+    container_name: rag-bert-api
+    restart: unless-stopped
+    environment:
+      - SERVICE=bert
+      - BERT_MODEL_DIR=/app/models/bert
+      - BERT_THRESHOLD=0.75
+      - BERT_MAX_LENGTH=512
+    volumes:
+      # BERT model dosyalari buraya bagla
+      # Hetzner'da: /opt/rag-models/bert -> /app/models/bert
+      - bert-models:/app/models/bert
+    ports:
+      - "8001:8001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+
+  # ----------------------------------------------------------
+  # NLI API — mDeBERTa zero-shot NLI
+  # RAM: ~1.5GB | CPU: orta | Port: 8002
+  # Ilk baslatmada model HuggingFace'den indirilir (~1.5GB)
+  # ----------------------------------------------------------
+  nli-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.hybrid
+    image: rag-hybrid:latest
+    container_name: rag-nli-api
+    restart: unless-stopped
+    environment:
+      - SERVICE=nli
+      - NLI_MODEL=MoritzLaurer/mdeberta-v3-base-xnli-multilingual-nli-2mil7
+      - HF_HOME=/app/models/hf_cache
+      - TRANSFORMERS_CACHE=/app/models/hf_cache
+    volumes:
+      # HuggingFace cache — model tekrar indirilmesin
+      - hf-cache:/app/models/hf_cache
+    ports:
+      - "8002:8002"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 180s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+
+  # ----------------------------------------------------------
+  # Hibrit API — Routing + Fusion katmani
+  # RAM: ~256MB | CPU: dusuk | Port: 8003
+  # bert-api ve nli-api'ye HTTP ile baglanir
+  # ----------------------------------------------------------
+  hybrid-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.hybrid
+    image: rag-hybrid:latest
+    container_name: rag-hybrid-api
+    restart: unless-stopped
+    environment:
+      - SERVICE=hybrid
+      - BERT_URL=http://bert-api:8001
+      - NLI_URL=http://nli-api:8002
+    ports:
+      - "8003:8003"
+    depends_on:
+      bert-api:
+        condition: service_healthy
+      nli-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+# ----------------------------------------------------------
+# Volumes — kalici depolama
+# ----------------------------------------------------------
+volumes:
+  bert-models:
+    driver: local
+    # Coolify'da bu volume'u Hetzner disk ile bagla:
+    # driver_opts:
+    #   type: none
+    #   o: bind
+    #   device: /opt/rag-models/bert
+
+  hf-cache:
+    driver: local
+    # NLI modeli burada saklanir (~1.5GB)
+    # Coolify'da kalici volume olarak tanimla

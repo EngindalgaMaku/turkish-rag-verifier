@@ -1,0 +1,84 @@
+# ============================================================
+# Dockerfile.hybrid — Turkish RAG Hibrit Pipeline (CPU-only)
+# ============================================================
+# Icindekiler:
+#   - BERT API (bert_api.py)       port 8001
+#   - NLI API  (nli_api.py)        port 8002
+#   - Hibrit API (hybrid_api.py)   port 8003
+#
+# GPU GEREKTIRMEZ. 8GB RAM yeterli.
+#
+# Build:
+#   docker build -f Dockerfile.hybrid \
+#     --build-arg BERT_HF_REPO=kullanici/berturk-exp020 \
+#     --build-arg HF_TOKEN=hf_xxx \
+#     -t rag-hybrid:latest .
+#
+# Veya runtime'da model indir (BERT_HF_REPO env ile):
+#   docker run -e BERT_HF_REPO=kullanici/berturk-exp020 \
+#              -e HF_TOKEN=hf_xxx \
+#              -e SERVICE=bert \
+#              rag-hybrid:latest
+# ============================================================
+
+FROM python:3.11-slim
+
+# Sistem bagimliliklari
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Once requirements (layer cache icin)
+COPY requirements-hybrid.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Uygulama kodlari
+COPY bert_api.py ./
+COPY nli_api.py ./
+COPY hybrid_api.py ./
+COPY hybrid_detector.py ./
+COPY src/ ./src/
+
+# Model dizinleri
+RUN mkdir -p /app/models/bert /app/models/hf_cache
+
+# HuggingFace ayarlari
+ENV HF_HOME=/app/models/hf_cache
+ENV TRANSFORMERS_CACHE=/app/models/hf_cache
+
+# Build-time: BERT modelini HuggingFace'den indir
+# (Opsiyonel — runtime'da da indirilebilir)
+ARG BERT_HF_REPO=""
+ARG HF_TOKEN=""
+RUN if [ -n "$BERT_HF_REPO" ] && [ -n "$HF_TOKEN" ]; then \
+    echo "BERT modeli indiriliyor: $BERT_HF_REPO" && \
+    HF_TOKEN=$HF_TOKEN huggingface-cli download \
+        $BERT_HF_REPO \
+        --local-dir /app/models/bert \
+        --token $HF_TOKEN; \
+    else \
+    echo "BERT_HF_REPO veya HF_TOKEN belirtilmedi, model runtime'da indirilecek"; \
+    fi
+
+# Baslatma scripti
+COPY docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
+
+# Hangi servis baslatilacak (bert | nli | hybrid)
+ENV SERVICE=hybrid
+ENV BERT_MODEL_DIR=/app/models/bert
+ENV BERT_THRESHOLD=0.75
+ENV BERT_MAX_LENGTH=512
+ENV NLI_MODEL=MoritzLaurer/mdeberta-v3-base-xnli-multilingual-nli-2mil7
+ENV BERT_URL=http://bert-api:8001
+ENV NLI_URL=http://nli-api:8002
+ENV BERT_HF_REPO=""
+ENV HF_TOKEN=""
+
+ENTRYPOINT ["./docker-entrypoint.sh"]
+
+HEALTHCHECK --interval=30s --timeout=15s --start-period=180s --retries=3 \
+    CMD sh -c 'PORT=$([ "$SERVICE" = "bert" ] && echo 8001 || ([ "$SERVICE" = "nli" ] && echo 8002 || echo 8003)); curl -f http://localhost:$PORT/health || exit 1'

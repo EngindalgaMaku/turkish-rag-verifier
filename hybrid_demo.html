@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>EXP-048 Hibrit Hallucination Detector</title>
+<style>
+:root{--bg:#0f1117;--panel:#1a1d27;--card:#21253a;--border:#2e3350;--text:#e2e8f0;--muted:#8892b0;--g:#22c55e;--y:#f59e0b;--o:#f97316;--r:#ef4444;--bl:#6366f1;--bc:#38bdf8;--nc:#a78bfa;--hc:#34d399}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:Segoe UI,system-ui,sans-serif;font-size:14px}
+.hdr{background:var(--panel);border-bottom:1px solid var(--border);padding:11px 20px;display:flex;align-items:center;gap:10px}
+.hdr h1{font-size:16px;font-weight:700}.hdr h1 span{color:var(--hc)}
+.badges{display:flex;gap:7px;margin-left:auto}
+.badge{padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;display:flex;align-items:center;gap:4px}
+.badge.b{background:rgba(56,189,248,.1);color:var(--bc);border:1px solid rgba(56,189,248,.2)}
+.badge.n{background:rgba(167,139,250,.1);color:var(--nc);border:1px solid rgba(167,139,250,.2)}
+.badge.h{background:rgba(52,211,153,.1);color:var(--hc);border:1px solid rgba(52,211,153,.2)}
+.dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+.dot.ok{background:var(--g)}.dot.err{background:var(--r)}.dot.spin{animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.layout{display:grid;grid-template-columns:290px 1fr;height:calc(100vh - 50px)}
+.sb{background:var(--panel);border-right:1px solid var(--border);padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:12px}
+.mn{padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:12px}
+.st{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
+label{display:block;font-size:11px;color:var(--muted);margin-bottom:3px}
+input,textarea,select{width:100%;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 8px;font-size:12px;font-family:inherit;outline:none;transition:border-color .2s}
+input:focus,textarea:focus,select:focus{border-color:var(--hc)}
+textarea{resize:vertical;min-height:55px}
+.mg{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.mb{padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--muted);cursor:pointer;font-size:11px;font-weight:600;text-align:center;transition:all .2s}
+.mb.active{border-color:var(--hc);color:var(--hc);background:rgba(52,211,153,.07)}
+.exl{display:flex;flex-direction:column;gap:3px}
+.eb{background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:5px 8px;cursor:pointer;font-size:11px;text-align:left;display:flex;align-items:center;gap:6px;transition:border-color .2s}
+.eb:hover{border-color:var(--hc)}
+.ed{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.rb{width:100%;padding:9px;border-radius:7px;border:none;background:var(--hc);color:#0f1117;font-weight:700;font-size:13px;cursor:pointer;transition:opacity .2s}
+.rb:hover{opacity:.85}.rb:disabled{opacity:.4;cursor:not-allowed}
+.tabs{display:flex;gap:2px;background:var(--card);border-radius:7px;padding:3px}
+.tab{flex:1;padding:6px;text-align:center;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600;color:var(--muted);transition:all .2s}
+.tab.active{background:var(--border);color:var(--text)}
+.pg{display:none}.pg.active{display:flex;flex-direction:column;gap:12px}
+.rg{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.rc{background:var(--card);border:1px solid var(--border);border-radius:9px;padding:13px}
+.rc.hl{border-color:var(--hc)}
+.rch{display:flex;align-items:center;gap:6px;margin-bottom:9px}
+.rct{font-size:12px;font-weight:700}
+.rtag{font-size:10px;padding:2px 6px;border-radius:9px;font-weight:600}
+.rtag.b{background:rgba(56,189,248,.1);color:var(--bc)}
+.rtag.n{background:rgba(167,139,250,.1);color:var(--nc)}
+.rtag.h{background:rgba(52,211,153,.1);color:var(--hc)}
+.dp{display:inline-flex;align-items:center;gap:4px;padding:4px 11px;border-radius:18px;font-weight:700;font-size:12px;margin-bottom:7px}
+.dp.accept{background:rgba(34,197,94,.1);color:var(--g);border:1px solid rgba(34,197,94,.2)}
+.dp.warn{background:rgba(245,158,11,.1);color:var(--y);border:1px solid rgba(245,158,11,.2)}
+.dp.revise{background:rgba(239,68,68,.1);color:var(--r);border:1px solid rgba(239,68,68,.2)}
+.dp.insufficient_context{background:rgba(99,102,241,.1);color:var(--bl);border:1px solid rgba(99,102,241,.2)}
+.mr{display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid var(--border);font-size:11px}
+.mr:last-child{border-bottom:none}
+.ml{color:var(--muted)}.mv{font-weight:600;font-family:monospace}
+.bw{margin:5px 0}
+.bl2{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-bottom:2px}
+.bt{height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+.bf{height:100%;border-radius:3px;transition:width .5s}
+.rtbox{background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:9px 12px;display:flex;align-items:center;gap:9px}
+.rti{font-size:17px}.rtt{flex:1}.rtt strong{display:block;font-size:12px}.rtt span{font-size:11px;color:var(--muted)}
+.expl{background:var(--panel);border-left:3px solid var(--hc);border-radius:0 5px 5px 0;padding:6px 9px;font-size:11px;color:var(--muted);margin-top:6px}
+.empty{text-align:center;color:var(--muted);padding:40px;font-size:13px}
+.sg{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.sc{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:9px;text-align:center}
+.sv{font-size:19px;font-weight:700}.sl{font-size:10px;color:var(--muted);margin-top:2px}
+.bt2{width:100%;border-collapse:collapse;font-size:11px}
+.bt2 th{background:var(--panel);padding:6px 8px;text-align:left;font-size:10px;color:var(--muted);text-transform:uppercase;border-bottom:1px solid var(--border)}
+.bt2 td{padding:6px 8px;border-bottom:1px solid var(--border)}
+.bt2 tr:last-child td{border-bottom:none}
+.bt2 tr:hover td{background:rgba(255,255,255,.02)}
+.notif{position:fixed;bottom:14px;right:14px;background:var(--card);border:1px solid var(--border);border-radius:7px;padding:8px 13px;font-size:12px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:100}
+.notif.show{opacity:1}.notif.ok{border-color:var(--g)}.notif.err{border-color:var(--r)}
+.spinner{display:inline-block;width:13px;height:13px;border:2px solid var(--border);border-top-color:var(--hc);border-radius:50%;animation:sp .8s linear infinite;vertical-align:middle;margin-right:4px}
+.cb{font-size:10px;padding:2px 6px;border-radius:9px;font-weight:700}
+.cb.ok{background:rgba(34,197,94,.1);color:var(--g)}.cb.err{background:rgba(239,68,68,.1);color:var(--r)}
+</style>
+</head>
+<body>
+<div class="hdr">
+  <h1>EXP-048 <span>Hibrit</span> Hallucination Detector</h1>
+  <div class="badges">
+    <div class="badge b"><div class="dot spin" id="db"></div>BERT :8001</div>
+    <div class="badge n"><div class="dot spin" id="dn"></div>NLI :8002</div>
+    <div class="badge h"><div class="dot spin" id="dh"></div>Hibrit :8003</div>
+  </div>
+</div>
+<div class="layout">
+<div class="sb">
+  <div><div class="st">API Adresi</div><input id="apiUrl" value="http://localhost:8003" oninput="schedH()"></div>
+  <div>
+    <div class="st">Mod</div>
+    <div class="mg">
+      <button class="mb active" onclick="setMode('auto')" id="mode-auto">Auto</button>
+      <button class="mb" onclick="setMode('bert')" id="mode-bert">BERT</button>
+      <button class="mb" onclick="setMode('nli')" id="mode-nli">NLI</button>
+      <button class="mb" onclick="setMode('ensemble')" id="mode-ensemble">Ensemble</button>
+    </div>
+  </div>
+  <div>
+    <div class="st">Girdi</div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <div><label>Baglamı (kaynak metin)</label><textarea id="ctx" rows="4" placeholder="Kaynak metin..."></textarea></div>
+      <div><label>Cevap (dogrulanacak)</label><textarea id="ans" rows="3" placeholder="RAG cevabi..."></textarea></div>
+      <div><label>Soru (opsiyonel)</label><input id="qst" placeholder="Kullanici sorusu..."></div>
+      <div><label>Gercek Etiket (opsiyonel)</label>
+        <select id="gold">
+          <option value="">-- secin --</option>
+          <option value="supported">supported</option>
+          <option value="partially_supported">partially_supported</option>
+          <option value="unsupported">unsupported</option>
+          <option value="contradicted">contradicted</option>
+          <option value="insufficient_context">insufficient_context</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <div>
+    <div class="st">Ornek Senaryolar</div>
+    <div class="exl">
+      <button class="eb" onclick="loadEx('sc')"><span class="ed" style="background:var(--r)"></span>Kisa -- RAM celiski (NLI)</button>
+      <button class="eb" onclick="loadEx('so')"><span class="ed" style="background:var(--g)"></span>Kisa -- Ataturk dogru (NLI)</button>
+      <button class="eb" onclick="loadEx('lc')"><span class="ed" style="background:var(--r)"></span>Uzun -- II. Dunya Savasi (BERT)</button>
+      <button class="eb" onclick="loadEx('lo')"><span class="ed" style="background:var(--g)"></span>Uzun -- Kucuk Menderes (BERT)</button>
+      <button class="eb" onclick="loadEx('in')"><span class="ed" style="background:var(--bl)"></span>Yetersiz -- Fakir Baykurt</button>
+      <button class="eb" onclick="loadEx('pa')"><span class="ed" style="background:var(--y)"></span>Kismi -- API erisim (Ensemble)</button>
+    </div>
+  </div>
+  <button class="rb" id="runBtn" onclick="runDetect()">Analiz Et</button>
+</div>
+<div class="mn">
+  <div class="tabs">
+    <div class="tab active" id="tab-single" onclick="sw('single')">Tekli Test</div>
+    <div class="tab" id="tab-batch" onclick="sw('batch')">Coklu Test</div>
+  </div>
+  <div class="pg active" id="pg-single">
+    <div id="s-empty" class="empty">Baglamı ve cevabı girin, <strong>Analiz Et</strong>'e tiklayin.<br><small style="margin-top:5px;display:block">Ctrl+Enter ile hizli calistirin</small></div>
+    <div id="s-result" style="display:none;flex-direction:column;gap:11px">
+      <div class="rtbox" id="rtbox"></div>
+      <div class="rg" id="rg"></div>
+    </div>
+  </div>
+  <div class="pg" id="pg-batch">
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:7px;padding:11px">
+      <div class="st" style="margin-bottom:5px">JSON Satirlari (max 50)</div>
+      <textarea id="batchIn" rows="6" style="font-family:monospace;font-size:11px" placeholder='{"context":"...","answer":"...","gold_label":"supported"}'></textarea>
+      <div style="display:flex;gap:7px;margin-top:7px">
+        <button class="rb" style="flex:1" onclick="runBatch()">Batch Calistir</button>
+        <button class="rb" style="flex:0 0 100px;background:var(--border);color:var(--text)" onclick="loadBatchEx()">Ornek Yukle</button>
+      </div>
+    </div>
+    <div id="b-stats" style="display:none"><div class="sg" id="sg"></div></div>
+    <div id="b-table" style="display:none;overflow-x:auto">
+      <table class="bt2">
+        <thead><tr><th>#</th><th>Baglamdan</th><th>Routing</th><th>Karar</th><th>H-Score</th><th>Guven</th><th>Gold</th><th>Dogru?</th></tr></thead>
+        <tbody id="btbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+</div>
+<div class="notif" id="notif"></div>
+<script>
+const EX={
+  sc:{ctx:"RAM gecici bellektir, elektrik kesilince kaybolur.",ans:"RAM kalici bellektir.",qst:"RAM kalici mi?",gold:"contradicted"},
+  so:{ctx:"Ataturk 1881 yilinda Selanik'te dogmustur.",ans:"Ataturk 1881 yilinda Selanik'te dogmustur.",qst:"Ataturk nerede dogdu?",gold:"supported"},
+  lc:{ctx:"II. Dunya Savasi, 1939-1945 yillari arasinda gerceklesen kuresel savas. Mihver ve Muttefik devletler arasinda yasanmistir. Savasin cikis nedenleri arasinda Almanya'nin yayilmaci politikasi ve Versay Antlasmasi'nin yarattigi gerilimler sayilabilir. Savas, siyasi, ekonomik ve insani sonuclari bakimindan 20. yuzyilin en yikici olaylarindan biridir.",ans:"Savas yalnizca tarafsiz devletler arasinda yasanmistir.",qst:"Baglamda savas hangi devlet gruplari arasinda yasanmistir?",gold:"contradicted"},
+  lo:{ctx:"Kucuk Menderes, Bati Anadolu'da yer alan akarsu sistemlerinden biridir. Ege Bolgesindeki ovalar ve tarim alanlariyla iliskilidir. Havzasi yerlesim ve uretim acisindan onem tasir. Nehir, Izmir iline kadar uzanir ve Ege Denizi'ne dokulur.",ans:"Kucuk Menderes ege bolgesindeki ovalar ve tarim alanlariyla iliskilidir.",qst:"Baglamda Kucuk Menderes icin hangi cikarim yapilabilir?",gold:"supported"},
+  in:{ctx:"Fakir Baykurt, Turk romanci ve ogretmendir. Koy yasamini, koylulerin sorunlarini ve toplumsal esitsizlikleri konu alan eserleriyle bilinir. Yilanlarin Ocu, yazarin taninmis romanlarindan biridir.",ans:"Baglamda bu soruyu yanitlayacak bilgi yer almiyor.",qst:"Baglamda Fakir Baykurt hangi yil dogmustur?",gold:"insufficient_context"},
+  pa:{ctx:"API, yazilim bilesenlerin birbirleriyle iletisim kurmasini saglayan arayuzdur. Uygulamalar API'ler araciligiyla veri alabilir veya hizmetlere erisebilir.",ans:"Bir uygulama baska bir hizmete API uzerinden ulasabilir. Metin API'nin hizmetlere erisimi kapatan bir yapi oldugunu soyler.",qst:"Baglamda su iddia destekleniyor mu: Bir uygulama baska bir hizmete API uzerinden ulasabilir.",gold:"partially_supported"}
+};
+const BATCH_EX=[
+  {context:"RAM gecici bellektir, elektrik kesilince kaybolur.",answer:"RAM kalici bellektir.",gold_label:"contradicted"},
+  {context:"Ataturk 1881 yilinda Selanik'te dogmustur.",answer:"Ataturk 1881 yilinda Selanik'te dogmustur.",gold_label:"supported"},
+  {context:"II. Dunya Savasi, 1939-1945 yillari arasinda gerceklesen kuresel savas. Mihver ve Muttefik devletler arasinda yasanmistir. Savasin cikis nedenleri arasinda Almanya'nin yayilmaci politikasi ve Versay Antlasmasi'nin yarattigi gerilimler sayilabilir.",answer:"Savas yalnizca tarafsiz devletler arasinda yasanmistir.",gold_label:"contradicted"},
+  {context:"Kucuk Menderes, Bati Anadolu'da yer alan akarsu sistemlerinden biridir. Ege Bolgesindeki ovalar ve tarim alanlariyla iliskilidir. Havzasi yerlesim ve uretim acisindan onem tasir.",answer:"Kucuk Menderes ege bolgesindeki ovalar ve tarim alanlariyla iliskilidir.",gold_label:"supported"},
+  {context:"Fakir Baykurt, Turk romanci ve ogretmendir. Koy yasamini, koylulerin sorunlarini ve toplumsal esitsizlikleri konu alan eserleriyle bilinir.",answer:"Baglamda bu soruyu yanitlayacak bilgi yer almiyor.",gold_label:"insufficient_context"}
+];
+
+let mode="auto",htimer=null;
+function setMode(m){mode=m;document.querySelectorAll('.mb').forEach(b=>b.classList.remove('active'));document.getElementById('mode-'+m).classList.add('active')}
+function loadEx(k){const e=EX[k];document.getElementById('ctx').value=e.ctx;document.getElementById('ans').value=e.ans;document.getElementById('qst').value=e.qst||'';document.getElementById('gold').value=e.gold||'';showNotif('Ornek yuklendi','ok')}
+function loadBatchEx(){document.getElementById('batchIn').value=BATCH_EX.map(x=>JSON.stringify(x)).join('\n');showNotif('Batch ornegi yuklendi','ok')}
+function sw(t){document.querySelectorAll('.tab').forEach(el=>el.classList.remove('active'));document.querySelectorAll('.pg').forEach(el=>el.classList.remove('active'));document.getElementById('tab-'+t).classList.add('active');document.getElementById('pg-'+t).classList.add('active')}
+function dc(d){return{accept:'var(--g)',warn:'var(--y)',revise:'var(--r)',insufficient_context:'var(--bl)'}[d]||'var(--muted)'}
+function de(d){return{accept:'ACCEPT',warn:'WARN',revise:'REVISE',insufficient_context:'INSUF'}[d]||d}
+function hcol(s){if(s<0.2)return'var(--g)';if(s<0.5)return'var(--y)';if(s<0.75)return'var(--o)';return'var(--r)'}
+function bar(lbl,val,col){return'<div class="bw"><div class="bl2"><span>'+lbl+'</span><span>'+(val*100).toFixed(1)+'%</span></div><div class="bt"><div class="bf" style="width:'+(val*100)+'%;background:'+col+'"></div></div></div>'}
+function showNotif(msg,type){const n=document.getElementById('notif');n.textContent=msg;n.className='notif show '+(type||'');setTimeout(()=>n.classList.remove('show'),2500)}
+function schedH(){clearTimeout(htimer);htimer=setTimeout(checkHealth,800)}
+function setDot(id,ok){const d=document.getElementById(id);d.className='dot '+(ok?'ok':'err')}
+
+function bertCard(b){
+  if(!b)return'<div class="rc"><div class="rch"><div class="rct">BERT</div><span class="rtag b">berturk_exp020</span></div><div style="color:var(--muted);font-size:12px;padding:20px 0;text-align:center">Routing: kullanilmadi</div></div>';
+  if(b.error)return'<div class="rc"><div class="rch"><div class="rct">BERT</div><span class="rtag b">berturk_exp020</span></div><div style="color:var(--r);font-size:12px">Hata: '+b.error+'</div></div>';
+  const lc={supported:'var(--g)',partially_supported:'var(--y)',unsupported:'var(--o)',contradicted:'var(--r)',insufficient_context:'var(--bl)'};
+  const probs=b.probs||{};let bars='';
+  for(const[k,v]of Object.entries(probs).sort((a,b2)=>b2[1]-a[1]))bars+=bar(k,v,lc[k]||'var(--muted)');
+  return'<div class="rc"><div class="rch"><div class="rct">BERT</div><span class="rtag b">berturk_exp020</span></div>'
+    +'<div class="dp '+(b.predicted_label||'warn')+'">'+de(b.decision||'warn')+' '+(b.predicted_label||'?')+'</div>'
+    +'<div class="mr"><span class="ml">Guven</span><span class="mv">'+(b.confidence*100).toFixed(1)+'%</span></div>'
+    +'<div class="mr"><span class="ml">Karar</span><span class="mv" style="color:'+dc(b.decision)+'">'+( b.decision||'?')+'</span></div>'
+    +'<div style="margin-top:7px">'+bars+'</div></div>';
+}
+
+function nliCard(n){
+  if(!n)return'<div class="rc"><div class="rch"><div class="rct">NLI</div><span class="rtag n">mDeBERTa</span></div><div style="color:var(--muted);font-size:12px;padding:20px 0;text-align:center">Routing: kullanilmadi</div></div>';
+  if(n.error)return'<div class="rc"><div class="rch"><div class="rct">NLI</div><span class="rtag n">mDeBERTa</span></div><div style="color:var(--r);font-size:12px">Hata: '+n.error+'</div></div>';
+  return'<div class="rc"><div class="rch"><div class="rct">NLI</div><span class="rtag n">mDeBERTa zero-shot</span></div>'
+    +'<div class="dp '+(n.decision||'warn')+'">'+de(n.decision)+' '+(n.decision||'?')+'</div>'
+    +'<div class="mr"><span class="ml">Support</span><span class="mv" style="color:var(--g)">'+(n.support_score*100).toFixed(1)+'%</span></div>'
+    +'<div class="mr"><span class="ml">Contradiction</span><span class="mv" style="color:var(--r)">'+(n.contradiction_score*100).toFixed(1)+'%</span></div>'
+    +'<div class="mr"><span class="ml">Neutral</span><span class="mv">'+(n.neutral_score*100).toFixed(1)+'%</span></div>'
+    +'<div class="mr"><span class="ml">Keyword Overlap</span><span class="mv">'+(n.keyword_overlap*100).toFixed(1)+'%</span></div>'
+    +'<div style="margin-top:7px">'+bar('Support',n.support_score,'var(--g)')+bar('Contradiction',n.contradiction_score,'var(--r)')+bar('Neutral',n.neutral_score,'var(--muted)')+'</div></div>';
+}
+
+function hybridCard(d){
+  const hs=d.hallucination_score,hp=Math.round(hs*100),hc2=hcol(hs);
+  const ok=d.is_correct;
+  const cb=ok===null?'':'<span class="cb '+(ok?'ok':'err')+'">'+(ok?'Dogru':'Yanlis')+'</span>';
+  return'<div class="rc hl"><div class="rch"><div class="rct">Hibrit Karar</div><span class="rtag h">EXP-048</span>'+cb+'</div>'
+    +'<div class="dp '+d.decision+'">'+de(d.decision)+' '+d.decision.toUpperCase()+'</div>'
+    +'<div style="text-align:center;margin:9px 0">'
+    +'<div style="font-size:11px;color:var(--muted);margin-bottom:3px">Hallucination Score</div>'
+    +'<div style="font-size:26px;font-weight:700;color:'+hc2+'">'+hp+'%</div>'
+    +'<div class="bt" style="margin-top:5px"><div class="bf" style="width:'+hp+'%;background:'+hc2+'"></div></div>'
+    +'</div>'
+    +'<div class="mr"><span class="ml">Guven</span><span class="mv">'+(d.confidence*100).toFixed(1)+'%</span></div>'
+    +'<div class="mr"><span class="ml">Kaynak</span><span class="mv">'+d.source+'</span></div>'
+    +'<div class="mr"><span class="ml">Gecikme</span><span class="mv">'+d.latency_ms+'ms</span></div>'
+    +'<div class="expl">'+d.explanation+'</div></div>';
+}
+
+async function checkHealth(){
+  const url=document.getElementById('apiUrl').value.trim();
+  try{
+    const r=await fetch(url+'/health',{signal:AbortSignal.timeout(3000)});
+    const d=await r.json();
+    setDot('db',d.bert_ok);setDot('dn',d.nli_ok);setDot('dh',d.status==='ok');
+  }catch{setDot('db',false);setDot('dn',false);setDot('dh',false)}
+}
+
+async function runDetect(){
+  const url=document.getElementById('apiUrl').value.trim();
+  const ctx=document.getElementById('ctx').value.trim();
+  const ans=document.getElementById('ans').value.trim();
+  const qst=document.getElementById('qst').value.trim();
+  const gold=document.getElementById('gold').value;
+  if(!ctx||!ans){showNotif('Baglamı ve cevabı girin','err');return}
+  const btn=document.getElementById('runBtn');
+  btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Analiz ediliyor...';
+  try{
+    const r=await fetch(url+'/detect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({context:ctx,answer:ans,question:qst,gold_label:gold,mode:mode})});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const d=await r.json();
+    document.getElementById('s-empty').style.display='none';
+    const sr=document.getElementById('s-result');sr.style.display='flex';
+    const rl={bert:'BERT (uzun baglamli)',nli:'NLI (kisa baglamli)',ensemble:'Ensemble (her ikisi)'};
+    const rd={bert:d.context_words+' kelime -> berturk_exp020 fine-tuned',nli:d.context_words+' kelime -> mDeBERTa zero-shot NLI',ensemble:d.context_words+' kelime -> Her iki model paralel calistirildi'};
+    document.getElementById('rtbox').innerHTML='<div class="rti">'+(d.routing==='bert'?'[B]':d.routing==='nli'?'[N]':'[E]')+'</div><div class="rtt"><strong>'+(rl[d.routing]||d.routing)+'</strong><span>'+(rd[d.routing]||'')+'</span></div><div style="font-size:11px;color:var(--muted);text-align:right">'+d.latency_ms+'ms<br>'+d.context_words+' kelime</div>';
+    document.getElementById('rg').innerHTML=bertCard(d.bert)+nliCard(d.nli)+hybridCard(d);
+    showNotif('Analiz tamamlandi -- '+d.latency_ms+'ms','ok');
+  }catch(e){showNotif('Hata: '+e.message,'err')}
+  finally{btn.disabled=false;btn.innerHTML='Analiz Et'}
+}
+
+async function runBatch(){
+  const url=document.getElementById('apiUrl').value.trim();
+  const raw=document.getElementById('batchIn').value.trim();
+  if(!raw){showNotif('JSON satirlari gerekli','err');return}
+  let items=[];
+  for(const line of raw.split('\n')){const t=line.trim();if(!t)continue;try{items.push(JSON.parse(t))}catch{showNotif('JSON parse hatasi: '+t.slice(0,40),'err');return}}
+  if(items.length>50){showNotif('Max 50 satir','err');return}
+  const btn=document.querySelector('#pg-batch .rb');
+  btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Calistiriliyor...';
+  try{
+    const r=await fetch(url+'/batch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:items.map(x=>({context:x.context||'',answer:x.answer||'',question:x.question||'',claim:x.claim||'',gold_label:x.gold_label||'',mode:mode}))})});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const d=await r.json();
+    const s=d.summary;
+    const sg=document.getElementById('sg');
+    sg.innerHTML='';
+    const stats=[
+      {val:d.count,lbl:'Toplam'},
+      {val:s.accuracy!==null?(s.accuracy*100).toFixed(0)+'%':'—',lbl:'Dogruluk'},
+      {val:(s.avg_hallucination_score*100).toFixed(0)+'%',lbl:'Ort. H-Score'},
+      {val:s.n_with_gold,lbl:'Gold Etiketli'}
+    ];
+    for(const st of stats)sg.innerHTML+='<div class="sc"><div class="sv">'+st.val+'</div><div class="sl">'+st.lbl+'</div></div>';
+    document.getElementById('b-stats').style.display='block';
+    const tbody=document.getElementById('btbody');tbody.innerHTML='';
+    d.results.forEach((res,i)=>{
+      const item=items[i];
+      const ok=res.is_correct;
+      const cb=ok===null?'—':'<span class="cb '+(ok?'ok':'err')+'">'+(ok?'Dogru':'Yanlis')+'</span>';
+      tbody.innerHTML+='<tr>'
+        +'<td>'+(i+1)+'</td>'
+        +'<td>'+(item.context||'').slice(0,40)+'...</td>'
+        +'<td>'+res.routing+'</td>'
+        +'<td><span style="color:'+dc(res.decision)+'">'+res.decision+'</span></td>'
+        +'<td>'+(res.hallucination_score*100).toFixed(0)+'%</td>'
+        +'<td>'+(res.confidence*100).toFixed(0)+'%</td>'
+        +'<td>'+(item.gold_label||'—')+'</td>'
+        +'<td>'+cb+'</td>'
+        +'</tr>';
+    });
+    document.getElementById('b-table').style.display='block';
+    showNotif(d.count+' ornek islendi -- '+d.total_latency_ms+'ms','ok');
+  }catch(e){showNotif('Hata: '+e.message,'err')}
+  finally{btn.disabled=false;btn.innerHTML='Batch Calistir'}
+}
+
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();const t=document.querySelector('.tab.active');if(t&&t.id==='tab-single')runDetect();else runBatch()}});
+window.addEventListener('load',()=>checkHealth());
+</script>
+</body>
+</html>

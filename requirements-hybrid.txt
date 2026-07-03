@@ -1,0 +1,23 @@
+# Hibrit Pipeline — CPU-only gereksinimleri
+# BERT API (bert_api.py) + NLI API (nli_api.py) + Hibrit API (hybrid_api.py)
+
+# Web framework
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+httpx==0.27.0
+pydantic==2.7.1
+
+# ML — CPU-only (torch+cpu, GPU olmadan)
+torch==2.3.0+cpu --extra-index-url https://download.pytorch.org/whl/cpu
+transformers==4.41.2
+tokenizers==0.19.1
+sentencepiece==0.2.0
+protobuf==4.25.3
+
+# HuggingFace model indirme
+huggingface-hub==0.23.2
+safetensors==0.4.3
+
+# Yardimci
+numpy==1.26.4
+scipy==1.13.0

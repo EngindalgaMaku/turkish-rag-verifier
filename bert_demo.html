@@ -1,0 +1,1726 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>EXP019 BERT Classifier — Test Arayüzü</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0b0f19;
+      --surf: #111827;
+      --surf2: #1f2937;
+      --surf3: #374151;
+      --bdr: #1f2937;
+      --bdr2: #374151;
+      --txt: #f3f4f6;
+      --dim: #9ca3af;
+      --mid: #d1d5db;
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --al: rgba(99, 102, 241, 0.12);
+      --ab: rgba(99, 102, 241, 0.35);
+      
+      /* Label colors */
+      --g: #10b981; --gb: rgba(16, 185, 129, 0.12); --gbd: rgba(16, 185, 129, 0.3);
+      --y: #f59e0b; --yb: rgba(245, 158, 11, 0.12); --ybd: rgba(245, 158, 11, 0.3);
+      --o: #f97316; --ob: rgba(249, 115, 22, 0.12); --obd: rgba(249, 115, 22, 0.3);
+      --r: #ef4444; --rb: rgba(239, 68, 68, 0.12); --rbd: rgba(239, 68, 68, 0.3);
+      --bl: #3b82f6; --blb: rgba(59, 130, 246, 0.12); --blbd: rgba(59, 130, 246, 0.3);
+      
+      --mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+      --rad: 10px;
+      --rads: 6px;
+      --sh: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      --shm: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--txt);
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.6;
+      overflow: hidden;
+    }
+    
+    /* HEADER */
+    header {
+      background: var(--surf);
+      border-bottom: 1px solid var(--bdr);
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      height: 60px;
+      gap: 16px;
+      position: relative;
+      z-index: 50;
+    }
+    .hbrand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 1;
+    }
+    .hlogo {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--accent), #8b5cf6);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+      box-shadow: 0 0 12px rgba(99, 102, 241, 0.4);
+    }
+    .hbrand h1 {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .hbrand h1 span {
+      color: var(--accent);
+    }
+    .hsub {
+      font-size: 11px;
+      color: var(--dim);
+      background: var(--surf2);
+      border: 1px solid var(--bdr);
+      border-radius: 12px;
+      padding: 2px 10px;
+    }
+    .hstatus {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surf2);
+      border: 1px solid var(--bdr);
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 12px;
+      color: var(--mid);
+      cursor:pointer;
+      transition: all 0.15s;
+      user-select: none;
+    }
+    .hstatus:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--al);
+    }
+    .mdot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--bdr2);
+      flex-shrink: 0;
+      transition: background 0.3s, box-shadow 0.3s;
+    }
+    .mdot.ok {
+      background: var(--g);
+      box-shadow: 0 0 8px var(--g);
+    }
+    .mdot.err {
+      background: var(--r);
+      box-shadow: 0 0 8px var(--r);
+    }
+    .mdot.spin {
+      background: var(--y);
+      animation: pulse 1s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* TABS */
+    .tabs {
+      display: flex;
+      background: var(--surf);
+      border-bottom: 1px solid var(--bdr);
+      padding: 0 24px;
+    }
+    .tab {
+      padding: 12px 20px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--dim);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      user-select: none;
+    }
+    .tab:hover {
+      color: var(--mid);
+    }
+    .tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+    .tab-badge {
+      background: var(--surf2);
+      border: 1px solid var(--bdr);
+      border-radius: 10px;
+      padding: 1px 7px;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--dim);
+    }
+    .tab.active .tab-badge {
+      background: var(--al);
+      border-color: var(--ab);
+      color: var(--accent);
+    }
+
+    /* LAYOUT */
+    .page {
+      display: none;
+      height: calc(100vh - 102px);
+    }
+    .page.active {
+      display: block;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      height: 100%;
+      overflow: hidden;
+    }
+    .sidebar {
+      background: var(--surf);
+      border-right: 1px solid var(--bdr);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+    .main {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .ssec {
+      padding: 18px;
+      border-bottom: 1px solid var(--bdr);
+    }
+    .ssec:last-child {
+      border-bottom: none;
+    }
+    .shdr {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .shdr::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--bdr);
+    }
+    
+    label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--mid);
+      margin-bottom: 5px;
+      margin-top: 14px;
+    }
+    label:first-of-type {
+      margin-top: 0;
+    }
+    input[type=text], textarea, select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--bdr);
+      border-radius: var(--rads);
+      color: var(--txt);
+      font-size: 13px;
+      padding: 9px 11px;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      font-family: inherit;
+    }
+    input[type=text]:focus, textarea:focus, select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    }
+    textarea {
+      min-height: 76px;
+      resize: vertical;
+    }
+    
+    .apirow {
+      display: flex;
+      gap: 6px;
+    }
+    .apirow input {
+      flex: 1;
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+    
+    .btn {
+      padding: 9px 16px;
+      border: none;
+      border-radius: var(--rads);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+    }
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
+      transform: translateY(-1px);
+    }
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+    .btn-primary:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    .btn-ghost {
+      background: transparent;
+      color: var(--mid);
+      border: 1px solid var(--bdr);
+    }
+    .btn-ghost:hover {
+      border-color: var(--bdr2);
+      color: var(--txt);
+      background: var(--surf2);
+    }
+    .btn-success {
+      background: var(--gb);
+      color: var(--g);
+      border: 1px solid var(--gbd);
+    }
+    .btn-success:hover {
+      background: var(--g);
+      color: #fff;
+    }
+    .btn-warn {
+      background: var(--yb);
+      color: var(--y);
+      border: 1px solid var(--ybd);
+    }
+    .btn-warn:hover {
+      background: var(--y);
+      color: #fff;
+    }
+    .btn-full {
+      width: 100%;
+      margin-top: 14px;
+    }
+    .btn-sm {
+      padding: 5px 11px;
+      font-size: 12px;
+    }
+    .btn-load {
+      display: none;
+      width: 100%;
+      margin-top: 8px;
+      background: var(--al);
+      color: var(--accent);
+      border: 1px solid var(--ab);
+    }
+    .btn-load.show {
+      display: flex;
+    }
+    .btn-load:hover {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .exlist {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .exbtn {
+      background: var(--surf2);
+      border: 1px solid var(--bdr);
+      border-radius: var(--rads);
+      padding: 8px 11px;
+      font-size: 12px;
+      color: var(--mid);
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.12s;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+    .exbtn:hover {
+      border-color: var(--ab);
+      color: var(--txt);
+      background: var(--al);
+    }
+    .exdot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    
+    .lgitem {
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--bdr);
+      font-size: 12px;
+    }
+    .lgitem:last-child {
+      border-bottom: none;
+    }
+    .lgbadge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+      flex-shrink: 0;
+      font-family: var(--mono);
+    }
+    .lgdesc {
+      color: var(--dim);
+      line-height: 1.5;
+    }
+    
+    .b-supported            { background: var(--gb); color: var(--g); border: 1px solid var(--gbd); }
+    .b-partially_supported  { background: var(--yb); color: var(--y); border: 1px solid var(--ybd); }
+    .b-unsupported          { background: var(--ob); color: var(--o); border: 1px solid var(--obd); }
+    .b-contradicted         { background: var(--rb); color: var(--r); border: 1px solid var(--rbd); }
+    .b-insufficient_context { background: var(--blb); color: var(--bl); border: 1px solid var(--blbd); }
+    .b-accept               { background: var(--gb); color: var(--g); border: 1px solid var(--gbd); }
+    .b-block_or_review      { background: var(--rb); color: var(--r); border: 1px solid var(--rbd); }
+
+    /* RESULTS VIEW AREA */
+    .mtop {
+      background: var(--surf);
+      border-bottom: 1px solid var(--bdr);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-height: 50px;
+      flex-shrink: 0;
+    }
+    .mtop h2 {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    .mcontent {
+      padding: 22px;
+      overflow-y: auto;
+      flex: 1;
+      background: var(--bg);
+    }
+    
+    .empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 380px;
+      gap: 14px;
+      color: var(--dim);
+      text-align: center;
+    }
+    .eicon {
+      width: 64px;
+      height: 64px;
+      background: var(--surf2);
+      border: 1px solid var(--bdr);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+    }
+    .empty h3 {
+      font-size: 16px;
+      color: var(--mid);
+      font-weight: 600;
+    }
+    .empty p {
+      font-size: 13px;
+      max-width: 340px;
+      line-height: 1.7;
+    }
+    
+    /* RESULT CARDS & LAYOUTS */
+    .result-card {
+      background: var(--surf);
+      border: 1px solid var(--bdr);
+      border-radius: var(--rad);
+      overflow: hidden;
+      margin-bottom: 16px;
+      box-shadow: var(--sh);
+    }
+    .rc-header {
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--bdr);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .rc-body {
+      padding: 18px;
+    }
+    .decision-badge {
+      padding: 7px 18px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      font-family: var(--mono);
+    }
+    .d-accept { background: var(--gb); color: var(--g); border: 1px solid var(--gbd); }
+    .d-block_or_review { background: var(--rb); color: var(--r); border: 1px solid var(--rbd); }
+    .latency-tag {
+      font-size: 11px;
+      color: var(--dim);
+      font-family: var(--mono);
+      background: var(--surf2);
+      border: 1px solid var(--bdr);
+      border-radius: 5px;
+      padding: 3px 9px;
+    }
+    .correct-tag {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 5px;
+    }
+    .correct-yes { background: var(--gb); color: var(--g); border: 1px solid var(--gbd); }
+    .correct-no { background: var(--rb); color: var(--r); border: 1px solid var(--rbd); }
+    
+    .prob-section {
+      margin-top: 16px;
+    }
+    .prob-title {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 12px;
+    }
+    .prob-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .prob-label {
+      font-size: 11px;
+      font-family: var(--mono);
+      color: var(--mid);
+      width: 170px;
+      flex-shrink: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .prob-bar-wrap {
+      flex: 1;
+      background: var(--surf2);
+      border-radius: 4px;
+      height: 20px;
+      overflow: hidden;
+      border: 1px solid var(--bdr);
+    }
+    .prob-bar {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding-right: 6px;
+      min-width: 2px;
+    }
+    .prob-val {
+      font-size: 10px;
+      font-family: var(--mono);
+      font-weight: 700;
+      color: #fff;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+    }
+    .prob-pct {
+      font-size: 11px;
+      font-family: var(--mono);
+      color: var(--dim);
+      width: 52px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+    
+    .stats-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+    .stat-chip {
+      background: var(--surf2);
+      border: 1px solid var(--bdr);
+      border-radius: var(--rads);
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 80px;
+      box-shadow: var(--sh);
+    }
+    .stat-num {
+      font-size: 22px;
+      font-weight: 800;
+      line-height: 1;
+      font-family: var(--mono);
+    }
+    .stat-lbl {
+      font-size: 10px;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    
+    .input-preview {
+      background: var(--surf2);
+      border: 1px solid var(--bdr);
+      border-radius: var(--rads);
+      padding: 12px 14px;
+      font-size: 12px;
+      color: var(--dim);
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+    .input-preview strong {
+      color: var(--mid);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      display: block;
+      margin-bottom: 3px;
+    }
+    .input-preview p {
+      color: var(--txt);
+      font-size: 13px;
+    }
+    
+    /* BATCH PAGE SPECIFICS */
+    .batch-table-wrap {
+      overflow-x: auto;
+      margin-top: 16px;
+      border-radius: var(--rad);
+      border: 1px solid var(--bdr);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    th {
+      background: var(--surf2);
+      color: var(--dim);
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--bdr);
+      white-space: nowrap;
+    }
+    td {
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--bdr);
+      color: var(--txt);
+      vertical-align: middle;
+    }
+    tr:last-child td {
+      border-bottom: none;
+    }
+    tr:hover td {
+      background: rgba(99, 102, 241, 0.04);
+    }
+    .td-mono {
+      font-family: var(--mono);
+      font-size: 11px;
+    }
+    .td-truncate {
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    
+    .score-panel {
+      background: var(--surf);
+      border: 1px solid var(--bdr);
+      border-radius: var(--rad);
+      padding: 20px;
+      margin-bottom: 18px;
+      box-shadow: var(--sh);
+    }
+    .score-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .score-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--bdr);
+    }
+    .score-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+      gap: 12px;
+    }
+    .score-item {
+      background: var(--surf2);
+      border: 1px solid var(--bdr);
+      border-radius: var(--rads);
+      padding: 14px;
+      text-align: center;
+    }
+    .score-val {
+      font-size: 26px;
+      font-weight: 800;
+      font-family: var(--mono);
+      line-height: 1;
+    }
+    .score-lbl {
+      font-size: 10px;
+      color: var(--dim);
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    
+    /* HISTORY ITEMS */
+    .hist-item {
+      background: var(--surf2);
+      border: 1px solid var(--bdr);
+      border-radius: var(--rads);
+      padding: 10px 13px;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .hist-item:hover {
+      border-color: var(--ab);
+      background: var(--al);
+    }
+    .hist-q {
+      flex: 1;
+      font-size: 12px;
+      color: var(--mid);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .hist-time {
+      font-size: 10px;
+      color: var(--dim);
+      font-family: var(--mono);
+      flex-shrink: 0;
+    }
+    
+    .batch-hint {
+      font-size: 12px;
+      color: var(--dim);
+      line-height: 1.7;
+      margin-bottom: 10px;
+      background: var(--surf2);
+      border: 1px solid var(--bdr);
+      border-radius: var(--rads);
+      padding: 12px 14px;
+    }
+    .batch-hint code {
+      background: var(--surf3);
+      border: 1px solid var(--bdr2);
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--mid);
+    }
+    
+    /* MODAL */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.65);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    .modal-overlay.show {
+      display: flex;
+    }
+    .modal {
+      background: var(--surf);
+      border: 1px solid var(--bdr);
+      border-radius: 14px;
+      padding: 26px;
+      max-width: 500px;
+      width: 92%;
+      box-shadow: var(--shm);
+    }
+    .modal-hdr {
+      display: flex;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .modal-hdr h3 {
+      font-size: 15px;
+      font-weight: 700;
+      flex: 1;
+    }
+    .modal-close {
+      width: 30px;
+      height: 30px;
+      border: 1px solid var(--bdr);
+      border-radius: 7px;
+      background: var(--surf2);
+      color: var(--dim);
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.12s;
+    }
+    .modal-close:hover {
+      background: var(--rb);
+      border-color: var(--rbd);
+      color: var(--r);
+    }
+    .mrow {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--bdr);
+      font-size: 13px;
+    }
+    .mrow:last-child {
+      border-bottom: none;
+    }
+    .mk {
+      color: var(--dim);
+      font-size: 12px;
+    }
+    .mv {
+      color: var(--txt);
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 600;
+      text-align: right;
+      max-width: 280px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .mv.ok { color: var(--g); }
+    .mv.warn { color: var(--y); }
+    
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255, 255, 255, 0.25);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .errbox {
+      background: var(--rb);
+      border: 1px solid var(--rbd);
+      border-radius: var(--rad);
+      padding: 16px;
+      color: var(--r);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+    
+    .notif {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: var(--surf);
+      border: 1px solid var(--bdr);
+      border-radius: var(--rad);
+      padding: 12px 18px;
+      font-size: 13px;
+      color: var(--txt);
+      box-shadow: var(--shm);
+      z-index: 200;
+      transform: translateY(80px);
+      opacity: 0;
+      transition: all 0.3s;
+      max-width: 320px;
+    }
+    .notif.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+    .notif.ok { border-color: var(--gbd); color: var(--g); }
+    .notif.err { border-color: var(--rbd); color: var(--r); }
+    
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-thumb { background: var(--bdr2); border-radius: 3px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    
+    @media(max-width: 900px) {
+      .layout { grid-template-columns: 1fr; height: auto; }
+      .sidebar { border-right: none; border-bottom: 1px solid var(--bdr); }
+      .main { min-height: 60vh; }
+    }
+    
+    .section-title {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--bdr);
+    }
+    
+    .flex-gap {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    
+    .full-page-layout {
+      padding: 22px;
+      overflow-y: auto;
+      height: calc(100vh - 102px);
+    }
+    
+    .label-dist-bar {
+      display: flex;
+      height: 8px;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 8px;
+      gap: 2px;
+    }
+    .label-dist-seg {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.5s ease;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="hbrand">
+    <div class="hlogo">🤖</div>
+    <h1>EXP019 <span>BERT</span> Classifier</h1>
+    <span class="hsub">XLM-RoBERTa · 5-Sınıf · Türkçe RAG</span>
+  </div>
+  <div class="hstatus" id="modelPill" onclick="openModal()" title="Model bilgileri için tıkla">
+    <div class="mdot" id="statusDot"></div>
+    <span id="modelLabel">bağlanıyor...</span>
+    <span style="font-size:11px;opacity:0.5;margin-left:2px">ⓘ</span>
+  </div>
+</header>
+
+<div class="modal-overlay" id="infoModal" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <div class="modal-hdr">
+      <h3>🤖 Model Bilgileri — EXP019</h3>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="mrow"><span class="mk">API Adresi</span><span class="mv" id="mi-url">—</span></div>
+    <div class="mrow"><span class="mk">Model Dizini</span><span class="mv" id="mi-dir">—</span></div>
+    <div class="mrow"><span class="mk">Model Yüklü</span><span class="mv" id="mi-loaded">—</span></div>
+    <div class="mrow"><span class="mk">Cihaz (Device)</span><span class="mv" id="mi-device">—</span></div>
+    <div class="mrow"><span class="mk">Kabul Eşiği (Threshold)</span><span class="mv" id="mi-thr">—</span></div>
+    <div class="mrow"><span class="mk">Model Yükleme Süresi</span><span class="mv" id="mi-lt">—</span></div>
+    <div class="mrow"><span class="mk">Doğruluk (semdiag_v2)</span><span class="mv ok">0.9900</span></div>
+    <div class="mrow"><span class="mk">Macro F1 (semdiag_v2)</span><span class="mv ok">0.9925</span></div>
+    <div class="mrow"><span class="mk">ECE (Expected Calibration Error)</span><span class="mv ok">0.0167</span></div>
+    <div class="mrow"><span class="mk">Base Model</span><span class="mv">xlm-roberta-base</span></div>
+    <div class="mrow"><span class="mk">Eğitim Seti</span><span class="mv">pilot_v7 (weighted fine-tune)</span></div>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('single')" id="tab-single">🔍 Tekli Test</div>
+  <div class="tab" onclick="switchTab('batch')" id="tab-batch">
+    📋 Çoklu Test <span class="tab-badge" id="batch-count-badge">0</span>
+  </div>
+  <div class="tab" onclick="switchTab('history')" id="tab-history">
+    📜 Geçmiş <span class="tab-badge" id="hist-count-badge">0</span>
+  </div>
+</div>
+
+<!-- SINGLE TEST PAGE -->
+<div class="page active" id="page-single">
+<div class="layout">
+  <aside class="sidebar">
+    <div class="ssec">
+      <div class="shdr">Bağlantı</div>
+      <label>API Adresi (bert_api.py — port 8001)</label>
+      <div class="apirow">
+        <input type="text" id="apiUrl" value="http://localhost:8001" oninput="scheduleHealthCheck()"/>
+      </div>
+      <button class="btn btn-ghost btn-full btn-load" id="loadBtn" onclick="loadModel()">
+        ⚡ Modeli Belleğe Yükle
+      </button>
+    </div>
+    
+    <div class="ssec">
+      <div class="shdr">Girdi</div>
+      <label>Soru</label>
+      <input type="text" id="question" placeholder="Kullanıcının sorusu..."/>
+      <label>Cevap (doğrulanacak)</label>
+      <textarea id="answer" placeholder="RAG sisteminin ürettiği cevap..."></textarea>
+      <label>Bağlam (kaynak metin)</label>
+      <textarea id="context" style="min-height:100px" placeholder="RAG'in kullandığı kaynak metin..."></textarea>
+      <label>İddia (opsiyonel — boşsa cevap kullanılır)</label>
+      <input type="text" id="claim" placeholder="Spesifik iddia..."/>
+      <label style="margin-top: 14px;">Gerçek Etiket (opsiyonel — değerlendirme için)</label>
+      <select id="goldLabel">
+        <option value="">-- seçilmedi --</option>
+        <option value="supported">supported</option>
+        <option value="partially_supported">partially_supported</option>
+        <option value="unsupported">unsupported</option>
+        <option value="contradicted">contradicted</option>
+        <option value="insufficient_context">insufficient_context</option>
+      </select>
+      <button class="btn btn-primary btn-full" id="verifyBtn" onclick="verifySingle()">
+        <span id="btnText">🔍 Sınıflandır</span>
+      </button>
+    </div>
+    
+    <div class="ssec">
+      <div class="shdr">Örnek Senaryolar</div>
+      <div class="exlist">
+        <button class="exbtn" onclick="loadExample('supported')"><span class="exdot" style="background:var(--g)"></span>Desteklenen — Küçük Menderes</button>
+        <button class="exbtn" onclick="loadExample('contradicted')"><span class="exdot" style="background:var(--r)"></span>Çelişen — II. Dünya Savaşı</button>
+        <button class="exbtn" onclick="loadExample('unsupported')"><span class="exdot" style="background:var(--o)"></span>Desteklenmeyen — Malazgirt</button>
+        <button class="exbtn" onclick="loadExample('partial')"><span class="exdot" style="background:var(--y)"></span>Kısmen Desteklenen — API erişim</button>
+        <button class="exbtn" onclick="loadExample('insufficient')"><span class="exdot" style="background:var(--bl)"></span>Yetersiz Bağlam — Fakir Baykurt</button>
+      </div>
+    </div>
+    
+    <div class="ssec">
+      <div class="shdr">Etiket Şeması</div>
+      <div class="lgitem"><span class="lgbadge b-supported">supported</span><span class="lgdesc">Bağlam tarafından açıkça destekleniyor</span></div>
+      <div class="lgitem"><span class="lgbadge b-partially_supported">partial</span><span class="lgdesc">Kısmen destekleniyor; bazı kısımlar bağlamda yok</span></div>
+      <div class="lgitem"><span class="lgbadge b-unsupported">unsupported</span><span class="lgdesc">Bağlamda bilgi bulunmuyor (çıkarım yapılamaz)</span></div>
+      <div class="lgitem"><span class="lgbadge b-contradicted">contradicted</span><span class="lgdesc">Bağlamla doğrudan çelişiyor</span></div>
+      <div class="lgitem"><span class="lgbadge b-insufficient_context">insuf. ctx</span><span class="lgdesc">Bağlam karar vermek için yetersiz kalıyor</span></div>
+    </div>
+  </aside>
+  
+  <div class="main">
+    <div class="mtop">
+      <h2>Sınıflandırma Sonucu</h2>
+      <div id="resultMeta" style="font-size:11px;color:var(--dim);font-family:var(--mono);margin-left:auto"></div>
+    </div>
+    <div class="mcontent">
+      <div class="empty" id="emptyState">
+        <div class="eicon">🔬</div>
+        <h3>Analiz Bekleniyor</h3>
+        <p>Sol paneldeki alanları doldurun ve <strong>Sınıflandır</strong> butonuna tıklayın ya da örnek senaryolardan birini yükleyin.</p>
+      </div>
+      <div id="resultContent" style="display:none;"></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- BATCH TEST PAGE -->
+<div class="page" id="page-batch">
+  <div class="full-page-layout">
+    <div class="score-panel" id="batchInputPanel">
+      <div class="score-title">Toplu Tahmin Girdisi</div>
+      <div class="batch-hint">
+        Doğrulanacak verilerinizi JSON formatında aşağıdaki gibi bir liste olarak yapıştırın veya doğrudan bir <code>.jsonl</code> dosyası yükleyin.<br>
+        Girdi yapısı: <code>[ { "question": "...", "context": "...", "answer": "...", "claim": "...", "gold_label": "..." } ]</code> (claim ve gold_label alanları isteğe bağlıdır).
+      </div>
+      
+      <div style="display:flex; gap: 12px; margin-bottom: 12px;">
+        <button class="btn btn-ghost" onclick="loadBatchSample()" style="flex:1">📋 Örnek Şablon Veri Doldur</button>
+        <button class="btn btn-ghost" style="flex:1; position:relative;">
+          📂 Dosyadan Yükle (.jsonl / .json)
+          <input type="file" id="batchFile" accept=".json,.jsonl" onchange="handleFileSelect(event)" style="position:absolute; inset:0; opacity:0; cursor:pointer;" />
+        </button>
+      </div>
+      
+      <textarea id="batchText" style="min-height:160px; font-family:var(--mono); font-size:12px;" placeholder='[&#10;  {&#10;    "question": "Soru...",&#10;    "context": "Bağlam...",&#10;    "answer": "Cevap..."&#10;  }&#10;]'></textarea>
+      
+      <button class="btn btn-primary btn-full" id="batchRunBtn" onclick="runBatchClassification()" style="margin-top: 12px;">
+        ⚡ Toplu Tahmini Başlat
+      </button>
+    </div>
+    
+    <div id="batchResultContent" style="display:none; margin-top:20px;">
+      <!-- Batch summary metrics -->
+      <div class="score-panel">
+        <div class="score-title">İstatistikler ve Metrikler</div>
+        <div class="score-grid">
+          <div class="score-item"><div class="score-val" id="b-total">-</div><div class="score-lbl">Toplam Örnek</div></div>
+          <div class="score-item"><div class="score-val" style="color:var(--g);" id="b-accept">-</div><div class="score-lbl">Kabul Edilen</div></div>
+          <div class="score-item"><div class="score-val" style="color:var(--r);" id="b-block">-</div><div class="score-lbl">Red/İnceleme</div></div>
+          <div class="score-item"><div class="score-val" style="color:var(--accent);" id="b-acc">-</div><div class="score-lbl">Accuracy</div></div>
+        </div>
+        
+        <label style="margin-top:20px;">Sınıf Dağılımı</label>
+        <div class="label-dist-bar" id="b-dist-bar"></div>
+        <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--dim); margin-top:4px; font-family:var(--mono);" id="b-dist-legend"></div>
+      </div>
+      
+      <!-- Batch Table -->
+      <div class="section-title">Ayrıntılı Sonuç Listesi</div>
+      <div class="batch-table-wrap">
+        <table id="batchTable">
+          <thead>
+            <tr>
+              <th style="width: 50px;">#</th>
+              <th>Soru</th>
+              <th>İddia / Cevap</th>
+              <th style="width: 140px;">Tahmin</th>
+              <th style="width: 100px;">Güven Skoru</th>
+              <th style="width: 110px;">Karar</th>
+              <th style="width: 80px;">Doğru?</th>
+            </tr>
+          </thead>
+          <tbody id="batchTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- HISTORY PAGE -->
+<div class="page" id="page-history">
+  <div class="full-page-layout">
+    <div class="score-panel">
+      <div class="score-title" style="margin-bottom:12px;">Yerel Sorgu Geçmişi</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <span style="font-size:12px; color:var(--dim);">Tarayıcı yerel hafızasındaki en son 30 sorgu listelenir.</span>
+        <button class="btn btn-ghost btn-sm" onclick="clearHistory()" style="color:var(--r); border-color:var(--rbd);">🗑️ Geçmişi Temizle</button>
+      </div>
+      
+      <div id="historyList"></div>
+    </div>
+  </div>
+</div>
+
+<div class="notif" id="notif"></div>
+
+<script>
+  // Setup standard examples
+  const EX = {
+    supported: {
+      question: "Bağlama göre Küçük Menderes için hangi çıkarım yapılabilir?",
+      answer: "Küçük Menderes hakkında verilen bilgi, onun ege bölgesindeki ovalar ve tarım alanlarıyla ilişkilidir olduğunu gösterir.",
+      context: "Küçük Menderes, Batı Anadolu'da yer alan akarsu sistemlerinden biridir. Ege Bölgesindeki ovalar ve tarım alanlarıyla ilişkilidir. Havzası yerleşim ve üretim açısından önem taşır.",
+      claim: "Küçük Menderes hakkında verilen bilgi, onun ege bölgesindeki ovalar ve tarım alanlarıyla ilişkilidir olduğunu gösterir.",
+      gold_label: "supported"
+    },
+    contradicted: {
+      question: "Bağlama göre savaş hangi devlet grupları arasında yaşanmıştır?",
+      answer: "Savaş yalnızca tarafsız devletler arasında yaşanmıştır.",
+      context: "II. Dünya Savaşı, 1939-1945 yılları arasında gerçekleşen küresel savaştır. Mihver ve Müttefik devletler arasında yaşanmıştır. Savaş, siyasi, ekonomik ve insani sonuçları bakımından 20. yüzyılın en yıkıcı olaylarından biridir.",
+      claim: "Savaş yalnızca tarafsız devletler arasında yaşanmıştır.",
+      gold_label: "contradicted"
+    },
+    unsupported: {
+      question: "Replay unsupported örneği destekleniyor mu?",
+      answer: "Malazgirt için tüm ayrıntılar ve istisnalar eksiksiz biçimde verilmiştir.",
+      context: "Malazgirt, history alanındaki temel kavramlardan biri olarak açıklanır. Verilen açıklama bu kavramın ana özelliğini ve kullanım bağlamını belirtir.",
+      claim: "Malazgirt için tüm ayrıntılar ve istisnalar eksiksiz biçimde verilmiştir.",
+      gold_label: "unsupported"
+    },
+    partial: {
+      question: "Bağlama göre şu iddia destekleniyor mu: Bir uygulama başka bir hizmete API üzerinden ulaşabilir.",
+      answer: "Bir uygulama başka bir hizmete API üzerinden ulaşabilir. Metin API'nin hizmetlere erişimi kapatan bir yapı olduğunu söyler.",
+      context: "API, yazılım bileşenlerinin birbirleriyle iletişim kurmasını sağlayan arayüzdür. Uygulamalar API'ler aracılığıyla veri alabilir veya hizmetlere erişebilir.",
+      claim: "Bir uygulama başka bir hizmete API üzerinden ulaşabilir. Metin API'nin hizmetlere erişimi kapatan bir yapı olduğunu söyler.",
+      gold_label: "partially_supported"
+    },
+    insufficient: {
+      question: "Bağlama göre Fakir Baykurt hangi yıl doğmuştur?",
+      answer: "Bağlamda bu soruyu yanıtlayacak bilgi yer almıyor.",
+      context: "Fakir Baykurt, Türk romancı ve öğretmendir. Köy yaşamını, köylülerin sorunlarını ve toplumsal eşitsizlikleri konu alan eserleriyle bilinir. Yılanların Öcü, yazarın tanınmış romanlarından biridir.",
+      claim: "Bağlamda bu soruyu yanıtlayacak bilgi yer almıyor.",
+      gold_label: "insufficient_context"
+    }
+  };
+
+  const labelMapping = {
+    supported: { name: "SUPPORTED", color: "var(--g)" },
+    partially_supported: { name: "PARTIAL", color: "var(--y)" },
+    unsupported: { name: "UNSUPPORTED", color: "var(--o)" },
+    contradicted: { name: "CONTRADICTED", color: "var(--r)" },
+    insufficient_context: { name: "INSUFFICIENT", color: "var(--bl)" }
+  };
+
+  function loadExample(k) {
+    const e = EX[k];
+    document.getElementById('question').value = e.question;
+    document.getElementById('answer').value = e.answer;
+    document.getElementById('context').value = e.context;
+    document.getElementById('claim').value = e.claim || '';
+    document.getElementById('goldLabel').value = e.gold_label || '';
+    showNotif('Örnek senaryo yüklendi.', 'ok');
+  }
+
+  // Navigation
+  function switchTab(t) {
+    document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+    
+    document.getElementById('tab-' + t).classList.add('active');
+    document.getElementById('page-' + t).classList.add('active');
+    
+    if (t === 'history') {
+      renderHistory();
+    }
+  }
+
+  // Modals
+  function openModal() { document.getElementById('infoModal').classList.add('show'); }
+  function closeModal() { document.getElementById('infoModal').classList.remove('show'); }
+  function closeModalOutside(e) { if (e.target === document.getElementById('infoModal')) closeModal(); }
+
+  // Notifications
+  function showNotif(msg, type = 'ok') {
+    const n = document.getElementById('notif');
+    n.textContent = msg;
+    n.className = 'notif show ' + type;
+    setTimeout(() => n.classList.remove('show'), 3000);
+  }
+
+  // Health and connection state
+  let _ht = null;
+  function scheduleHealthCheck() {
+    clearTimeout(_ht);
+    _ht = setTimeout(checkHealth, 800);
+  }
+
+  async function checkHealth() {
+    const url = document.getElementById('apiUrl').value.trim();
+    const dot = document.getElementById('statusDot');
+    const lbl = document.getElementById('modelLabel');
+    const lb = document.getElementById('loadBtn');
+    
+    dot.className = 'mdot spin';
+    lbl.textContent = 'kontrol ediliyor...';
+    
+    try {
+      const r = await fetch(`${url}/health`, { signal: AbortSignal.timeout(5000) });
+      if(!r.ok) throw new Error("HTTP " + r.status);
+      const d = await r.json();
+      
+      dot.className = 'mdot ok';
+      lbl.textContent = d.model_loaded ? 'Aktif' : 'Model Yüklenmedi';
+      
+      document.getElementById('mi-url').textContent = url;
+      document.getElementById('mi-dir').textContent = d.model_dir || '—';
+      document.getElementById('mi-device').textContent = d.device || '—';
+      document.getElementById('mi-thr').textContent = d.threshold !== undefined ? d.threshold : '—';
+      document.getElementById('mi-lt').textContent = d.load_time_s ? d.load_time_s + ' sn' : '—';
+      
+      const el = document.getElementById('mi-loaded');
+      if (d.model_loaded) {
+        el.textContent = 'Evet';
+        el.className = 'mv ok';
+        lb.classList.remove('show');
+      } else {
+        el.textContent = 'Hayır (İlk istekte otomatik yüklenir)';
+        el.className = 'mv warn';
+        lb.classList.add('show');
+      }
+    } catch (e) {
+      dot.className = 'mdot err';
+      lbl.textContent = 'bağlantı yok';
+      
+      document.getElementById('mi-url').textContent = url;
+      ['mi-dir', 'mi-device', 'mi-thr', 'mi-lt'].forEach(id => document.getElementById(id).textContent = '—');
+      const el = document.getElementById('mi-loaded');
+      el.textContent = 'Bağlanamadı';
+      el.className = 'mv warn';
+      lb.classList.remove('show');
+    }
+  }
+
+  // Force trigger model loading
+  async function loadModel() {
+    const url = document.getElementById('apiUrl').value.trim();
+    const lb = document.getElementById('loadBtn');
+    
+    lb.disabled = true;
+    lb.textContent = 'Model Belleğe Yükleniyor... (~30-60 sn)';
+    
+    try {
+      // Send a dummy verify call to trigger lazy loading
+      await fetch(`${url}/classify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: 'dummy load',
+          answer: 'dummy load',
+          context: 'dummy load context for huggingface lazy download'
+        }),
+        signal: AbortSignal.timeout(90000)
+      });
+      showNotif("Model başarıyla yüklendi!", "ok");
+    } catch(e) {
+      showNotif("Yükleme tetiklendi, bağlantı kontrol ediliyor.", "warn");
+    }
+    
+    lb.disabled = false;
+    lb.textContent = '⚡ Modeli Belleğe Yükle';
+    await checkHealth();
+  }
+
+  // Single verify
+  async function verifySingle() {
+    const url = document.getElementById('apiUrl').value.trim();
+    const q = document.getElementById('question').value.trim();
+    const a = document.getElementById('answer').value.trim();
+    const c = document.getElementById('context').value.trim();
+    const cl = document.getElementById('claim').value.trim();
+    const gl = document.getElementById('goldLabel').value.trim();
+    
+    if (!q || !a || !c) {
+      alert("Soru, Cevap ve Bağlam alanları zorunludur.");
+      return;
+    }
+    
+    const btn = document.getElementById('verifyBtn');
+    const bt = document.getElementById('btnText');
+    
+    btn.disabled = true;
+    bt.innerHTML = '<div class="spinner"></div> Sınıflandırılıyor...';
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('resultContent').style.display = 'none';
+    
+    try {
+      const t0 = Date.now();
+      const payload = {
+        question: q,
+        answer: a,
+        context: c,
+        claim: cl || null,
+        gold_label: gl || null
+      };
+      
+      const r = await fetch(`${url}/classify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(120000)
+      });
+      
+      if (!r.ok) {
+        const errJson = await r.json().catch(() => ({}));
+        throw new Error(errJson.detail || 'HTTP Hatası ' + r.status);
+      }
+      
+      const res = await r.json();
+      const elapsed = Date.now() - t0;
+      
+      renderSingleResult(res, elapsed, payload);
+      saveToHistory(payload, res, elapsed);
+      await checkHealth();
+    } catch(e) {
+      document.getElementById('resultContent').innerHTML = `
+        <div class="errbox">
+          <strong>Hata Oluştu:</strong> ${e.message}<br>
+          <small style="opacity:0.8; margin-top:8px; display:block;">
+            Lütfen bert_api.py servisinin çalışır durumda olduğundan emin olun.<br>
+            Model henüz yüklenmediyse "Modeli Belleğe Yükle" butonunu kullanabilirsiniz.
+          </small>
+        </div>
+      `;
+      document.getElementById('resultContent').style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      bt.textContent = '🔍 Sınıflandır';
+    }
+  }
+
+  function esc(s) {
+    if(!s) return '';
+    return s.toString().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function renderSingleResult(res, elapsed, payload) {
+    const isCorrectInfo = res.is_correct !== null 
+      ? `<span class="correct-tag ${res.is_correct ? 'correct-yes' : 'correct-no'}">
+          ${res.is_correct ? 'Doğru Tahmin' : 'Yanlış Tahmin (Altın Etiket: ' + payload.gold_label + ')'}
+         </span>`
+      : '';
+      
+    let probRows = '';
+    const sortedLabels = Object.entries(res.probs).sort((a,b) => b[1] - a[1]);
+    for (const [lbl, p] of sortedLabels) {
+      const info = labelMapping[lbl] || { name: lbl, color: 'var(--accent)' };
+      const pct = (p * 100).toFixed(2);
+      probRows += `
+        <div class="prob-row">
+          <span class="prob-label">${esc(info.name)}</span>
+          <div class="prob-bar-wrap">
+            <div class="prob-bar" style="width: ${pct}%; background: ${info.color};">
+              <span class="prob-val">${p > 0.15 ? pct + '%' : ''}</span>
+            </div>
+          </div>
+          <span class="prob-pct">${p <= 0.15 ? pct + '%' : ''}</span>
+        </div>
+      `;
+    }
+
+    const claimText = payload.claim || payload.answer;
+
+    document.getElementById('resultMeta').textContent = `${elapsed} ms`;
+    document.getElementById('resultContent').innerHTML = `
+      <div class="result-card">
+        <div class="rc-header">
+          <div class="decision-badge d-${res.decision}">${res.decision === 'accept' ? 'KABUL (ACCEPT)' : 'RED / İNCELEME (BLOCK)'}</div>
+          <div class="latency-tag">${res.predicted_label} (${(res.confidence * 100).toFixed(1)}%)</div>
+          ${isCorrectInfo}
+          <div class="latency-tag" style="margin-left:auto;">Gecikme: ${res.latency_ms.toFixed(1)} ms</div>
+        </div>
+        <div class="rc-body">
+          <div class="input-preview">
+            <strong>Doğrulanan İddia</strong>
+            <p>"${esc(claimText)}"</p>
+          </div>
+          
+          <div class="prob-section">
+            <div class="prob-title">Sınıf Olasılık Dağılımı</div>
+            ${probRows}
+          </div>
+        </div>
+      </div>
+    `;
+    document.getElementById('resultContent').style.display = 'block';
+  }
+
+  // Local query history management
+  function getHistory() {
+    return JSON.parse(localStorage.getItem('bert_history') || '[]');
+  }
+
+  function saveToHistory(payload, res, elapsed) {
+    let hist = getHistory();
+    const item = {
+      id: 'h_' + Date.now(),
+      time: new Date().toLocaleTimeString(),
+      payload: payload,
+      result: res,
+      elapsed: elapsed
+    };
+    hist.unshift(item);
+    if (hist.length > 30) hist = hist.slice(0, 30);
+    localStorage.setItem('bert_history', JSON.stringify(hist));
+    updateHistoryBadge();
+  }
+
+  function updateHistoryBadge() {
+    const hist = getHistory();
+    document.getElementById('hist-count-badge').textContent = hist.length;
+  }
+
+  function renderHistory() {
+    const hist = getHistory();
+    const hl = document.getElementById('historyList');
+    if(hist.length === 0) {
+      hl.innerHTML = '<div style="text-align:center; padding:30px; color:var(--dim);">Henüz geçmiş sorgu bulunmamaktadır.</div>';
+      return;
+    }
+    
+    hl.innerHTML = hist.map(item => {
+      const claimText = item.payload.claim || item.payload.answer;
+      const lblInfo = labelMapping[item.result.predicted_label] || { name: item.result.predicted_label, color: 'var(--accent)' };
+      
+      return `
+        <div class="hist-item" onclick="restoreHistoryItem('${item.id}')">
+          <div class="lgbadge" style="background:var(--surf); color:${lblInfo.color}; border:1px solid ${lblInfo.color};">${lblInfo.name}</div>
+          <div class="hist-q"><strong>${esc(item.payload.question)}</strong> — "${esc(claimText)}"</div>
+          <div class="hist-time">${item.time} (${item.elapsed}ms)</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function restoreHistoryItem(id) {
+    const hist = getHistory();
+    const item = hist.find(x => x.id === id);
+    if(!item) return;
+    
+    document.getElementById('question').value = item.payload.question;
+    document.getElementById('answer').value = item.payload.answer;
+    document.getElementById('context').value = item.payload.context;
+    document.getElementById('claim').value = item.payload.claim || '';
+    document.getElementById('goldLabel').value = item.payload.gold_label || '';
+    
+    switchTab('single');
+    showNotif('Sorgu geçmişten geri yüklendi.', 'ok');
+  }
+
+  function clearHistory() {
+    if(confirm('Tüm geçmiş sorguları silmek istediğinize emin misiniz?')) {
+      localStorage.removeItem('bert_history');
+      renderHistory();
+      updateHistoryBadge();
+      showNotif('Geçmiş temizlendi.', 'ok');
+    }
+  }
+
+  // Batch Page logic
+  function loadBatchSample() {
+    const sample = [
+      {
+        question: "Lozan Antlaşması ne zaman imzalandı?",
+        context: "Lozan Antlaşması, 24 Temmuz 1923 tarihinde İsviçre'nin Lozan şehrinde imzalanmıştır.",
+        answer: "Lozan Antlaşması 24 Temmuz 1923'te imzalanmıştır.",
+        gold_label: "supported"
+      },
+      {
+        question: "Türkiye'nin başkenti neresidir?",
+        context: "Türkiye Cumhuriyeti'nin başkenti Ankara'dır. Ankara İç Anadolu Bölgesi'nde yer alır.",
+        answer: "Türkiye'nin başkenti İstanbul'dur.",
+        gold_label: "contradicted"
+      },
+      {
+        question: "Limonun faydaları nelerdir?",
+        context: "Limon yüksek miktarda C vitamini içerir ve bağışıklık sistemini destekler.",
+        answer: "Limon faydalıdır ve her gün yenildiğinde göz bozukluklarını tamamen iyileştirir.",
+        gold_label: "unsupported"
+      }
+    ];
+    document.getElementById('batchText').value = JSON.stringify(sample, null, 2);
+    document.getElementById('batch-count-badge').textContent = sample.length;
+    showNotif("Örnek toplu veri yüklendi.", "ok");
+  }
+
+  function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const r = new FileReader();
+    r.onload = function(evt) {
+      const content = evt.target.result.trim();
+      if(content.startsWith('[')) {
+        // Assume JSON list
+        try {
+          const parsed = JSON.parse(content);
+          document.getElementById('batchText').value = JSON.stringify(parsed, null, 2);
+          document.getElementById('batch-count-badge').textContent = parsed.length;
+          showNotif("JSON dosyası başarıyla yüklendi.", "ok");
+        } catch(err) {
+          alert("JSON ayrıştırma hatası: " + err.message);
+        }
+      } else {
+        // Assume JSONL
+        try {
+          const lines = content.split('\n').filter(l => l.trim()).map(l => JSON.parse(l));
+          document.getElementById('batchText').value = JSON.stringify(lines, null, 2);
+          document.getElementById('batch-count-badge').textContent = lines.length;
+          showNotif(`.jsonl dosyasından ${lines.length} örnek yüklendi.`, "ok");
+        } catch(err) {
+          alert("JSONL satır ayrıştırma hatası: " + err.message);
+        }
+      }
+    };
+    r.readAsText(file);
+  }
+
+  async function runBatchClassification() {
+    const url = document.getElementById('apiUrl').value.trim();
+    const txt = document.getElementById('batchText').value.trim();
+    if(!txt) {
+      alert("Tahmin girdisi alanına veri ekleyin.");
+      return;
+    }
+    
+    let items = [];
+    try {
+      items = JSON.parse(txt);
+      if(!Array.isArray(items)) throw new Error("Girdi bir liste olmalıdır.");
+    } catch(e) {
+      alert("Ayrıştırma Hatası: Lütfen verilerin geçerli bir JSON listesi olduğundan emin olun.\nHata: " + e.message);
+      return;
+    }
+    
+    const btn = document.getElementById('batchRunBtn');
+    btn.disabled = true;
+    btn.textContent = 'Toplu Tahmin Yapılıyor...';
+    
+    try {
+      const t0 = Date.now();
+      const response = await fetch(`${url}/classify/batch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: items }),
+        signal: AbortSignal.timeout(180000)
+      });
+      
+      if(!response.ok) throw new Error("HTTP " + response.status);
+      const res = await response.json();
+      const totalElapsed = Date.now() - t0;
+      
+      renderBatchResults(res, totalElapsed);
+    } catch(e) {
+      alert("Toplu işlem sırasında hata oluştu: " + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '⚡ Toplu Tahmini Başlat';
+    }
+  }
+
+  function renderBatchResults(data, totalElapsed) {
+    document.getElementById('b-total').textContent = data.count;
+    document.getElementById('b-accept').textContent = data.summary.n_accept;
+    document.getElementById('b-block').textContent = data.summary.n_block;
+    
+    const accEl = document.getElementById('b-acc');
+    if (data.summary.accuracy !== null) {
+      accEl.textContent = (data.summary.accuracy * 100).toFixed(1) + '%';
+      accEl.style.color = 'var(--accent)';
+    } else {
+      accEl.textContent = '—';
+      accEl.style.color = 'var(--dim)';
+    }
+    
+    // Label distribution segmented bar
+    const bar = document.getElementById('b-dist-bar');
+    const legend = document.getElementById('b-dist-legend');
+    bar.innerHTML = '';
+    legend.innerHTML = '';
+    
+    const counts = data.summary.label_counts;
+    const total = data.count;
+    
+    for (const [lbl, count] of Object.entries(counts)) {
+      if(count === 0) continue;
+      const info = labelMapping[lbl] || { name: lbl, color: 'var(--accent)' };
+      const pct = (count / total * 100).toFixed(1);
+      
+      // Add segment to bar
+      const seg = document.createElement('div');
+      seg.className = 'label-dist-seg';
+      seg.style.width = pct + '%';
+      seg.style.background = info.color;
+      seg.title = `${info.name}: ${count} (${pct}%)`;
+      bar.appendChild(seg);
+      
+      // Add entry to legend
+      const leg = document.createElement('span');
+      leg.innerHTML = `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${info.color}; margin-right:4px;"></span>${info.name}: ${count} (${pct}%)`;
+      legend.appendChild(leg);
+    }
+    
+    // Fill Table
+    const tbody = document.getElementById('batchTableBody');
+    tbody.innerHTML = '';
+    
+    data.results.forEach((r, idx) => {
+      const orig = JSON.parse(document.getElementById('batchText').value)[idx] || {};
+      const claimText = orig.claim || orig.answer || '—';
+      const lblInfo = labelMapping[r.predicted_label] || { name: r.predicted_label, color: 'var(--accent)' };
+      
+      const isCorrectText = r.is_correct !== null
+        ? `<span style="color:${r.is_correct ? 'var(--g)' : 'var(--r)'}; font-weight:700;">${r.is_correct ? 'Evet' : 'Hayır'}</span>`
+        : '—';
+        
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="td-mono">${idx + 1}</td>
+        <td class="td-truncate" title="${esc(orig.question)}">${esc(orig.question)}</td>
+        <td class="td-truncate" title="${esc(claimText)}">${esc(claimText)}</td>
+        <td><span class="lgbadge" style="background:var(--surf); color:${lblInfo.color}; border:1px solid ${lblInfo.color};">${lblInfo.name}</span></td>
+        <td class="td-mono">${(r.confidence * 100).toFixed(1)}%</td>
+        <td><span class="lgbadge b-${r.decision}">${r.decision === 'accept' ? 'KABUL' : 'RED/İNC.'}</span></td>
+        <td>${isCorrectText}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+    
+    document.getElementById('batchResultContent').style.display = 'block';
+    showNotif(`Toplu tahmin tamamlandı (${totalElapsed} ms).`, "ok");
+  }
+
+  // Init
+  checkHealth();
+  setInterval(checkHealth, 30000);
+  updateHistoryBadge();
+  
+  // Keyboard shortcut Ctrl+Enter to verify
+  document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      const activePage = document.querySelector('.page.active').id;
+      if(activePage === 'page-single') verifySingle();
+      else if(activePage === 'page-batch') runBatchClassification();
+    }
+  });
+</script>
+</body>
+</html>
