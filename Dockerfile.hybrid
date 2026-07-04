@@ -42,6 +42,11 @@ COPY hybrid_api.py ./
 COPY hybrid_detector.py ./
 COPY src/ ./src/
 
+# HTML demo arayuzleri
+COPY hybrid_demo.html ./
+COPY bert_demo.html ./
+COPY nli_demo.html ./
+
 # Model dizinleri
 RUN mkdir -p /app/models/bert /app/models/hf_cache
 
