@@ -242,21 +242,27 @@ textarea{resize:vertical;min-height:55px}
     </div>
 
     <div class="about-grid">
-      <!-- Stage 1 Card -->
+      <!-- Component 1 Card -->
       <div class="about-card">
-        <h3><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--nc)"></span>Aşama 1: NLI Mantıksal Filtre</h3>
-        <p><strong>Model:</strong> <code>MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7</code></p>
-        <p>Girdi cevabı claim-level (iddia seviyesinde) küçük cümlelere bölünür ve kaynak bağlama göre zero-shot NLI ile test edilir. <strong>Entailment skoru &ge; 0.85</strong> ise doğrudan kabul (ACCEPT) kararı verilir. Bu aşama CPU üzerinde son derece hızlı çalışır.</p>
-        <p><strong>Shortcut Learning Tuzağı:</strong> Yapılan deneyler, NLI modellerini küçük sentetik veri kümeleri üzerinde fine-tune etmenin (örn. exp028) modelin <strong>sentetik şablonları ezberlemesine</strong> (shortcut learning) neden olduğunu ve Real20 gibi gerçek metin kümelerindeki genelleme başarısını <strong>%90'dan %55'e düşürdüğünü</strong> kanıtlamıştır. Bu nedenle ilk aşamada <strong>Zero-Shot NLI</strong> yapısı tercih edilmiştir.</p>
+        <h3><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--bc)"></span>Bileşen 1: İnce Ayarlı BERT Sınıflandırıcısı</h3>
+        <p><strong>Model:</strong> <code>berturk_exp020</code> (Fine-Tuned <code>dbmdz/bert-base-turkish-cased</code>)</p>
+        <p>Türkçe RAG veri kümeleri üzerinde denetimli (supervised) olarak ince ayar yapılmıştır. Bağlam ve cevap arasındaki ilişkileri 5 sınıflı şemada hızlı bir şekilde sınıflandırır. Eğitim verisindeki alana özgü örüntüleri yakalamada etkilidir.</p>
+        <p><strong>Shortcut Learning Analizi:</strong> Modeli sadece küçük/sentetik kümelerde eğitmenin, sentetik şablonları ezberleterek (shortcut learning) doğal test kümelerindeki doğruluğu düşürebildiği (örn: exp028'de %90'dan %55'e düşüş) gözlemlenmiştir. Bu yüzden model, genelleme yeteneğini koruyacak şekilde tasarlanmıştır.</p>
       </div>
 
-      <!-- Stage 2 Card -->
+      <!-- Component 2 Card -->
       <div class="about-card">
-        <h3><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--bc)"></span>Aşama 2: LoRA Fine-Tuned LLM</h3>
-        <p><strong>Model:</strong> <code>Qwen2.5-7B-Instruct</code> (QLoRA Fine-Tuned, EXP-012)</p>
-        <p>NLI filtresini geçemeyen (düşük güvenli, çelişen veya yetersiz bağlam riski taşıyan) karmaşık iddialar bu aşamaya yönlendirilir. Model, bağlamsal olarak 5 sınıflı hata teşhisi koyar, kanıt sunar ve metin düzeltmesi (revision) önerir.</p>
-        <p><strong>Neden Qwen-7B ve QLoRA?</strong> Llama-3.1-8B (EXP-013) modeliyle yapılan karşılaştırmalı testlerde Llama modelinin sınır etiketleri (özellikle kısmi destek - <code>partially_supported</code>) öğrenmede başarısız olduğu (%76 recall), buna karşın Qwen-7B'nin Türkçe heceleme yapısı ve kelime haznesi uyumu sayesinde <strong>%99.2 Macro F1</strong> ile üstün başarı gösterdiği gözlemlenmiştir.</p>
+        <h3><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--nc)"></span>Bileşen 2: Sıfır-Atışlı NLI Doğrulayıcısı</h3>
+        <p><strong>Model:</strong> <code>MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7</code></p>
+        <p>Kaynak metin ile cevap arasındaki anlamsal çıkarımı (entailment, neutral, contradiction) zero-shot (sıfır-atışlı) olarak değerlendirir. Eğitim görmediği yeni alanlardaki mantıksal çelişkileri ve bilgi uyuşmazlıklarını genel dil bilgisiyle yakalamada son derece kararlıdır.</p>
+        <p><strong>Hibrit Entegrasyon:</strong> Sistem, BERT'in alana özgü örüntü yakalama hızı ile NLI'ın zero-shot genelleme gücünü paralel veya ardışık (cascading) bir birleştirme (ensemble fusion) algoritmasıyla harmanlayarak çalışır.</p>
       </div>
+    </div>
+
+    <!-- Future Work Section -->
+    <div class="about-card" style="margin-top: 12px; margin-bottom: 12px;">
+      <h3><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--y)"></span>Gelecek Çalışmalar: Aşama 2 - Üretici LLM Katmanı (Roadmap)</h3>
+      <p>Tez çalışmasının sonraki aşamalarında, bu hızlı hibrit mantıksal filtreyi (BERT + NLI) geçemeyen karmaşık veya şüpheli durumlar için LoRA/QLoRA ile ince ayar yapılmış <strong>Qwen2.5-7B-Instruct</strong> gibi üretici büyük dil modellerinin (LLM) entegrasyonu planlanmaktadır. Bu katman, sadece doğrulamakla kalmayıp kanıt çıkarma (evidence extraction) ve metin düzeltme önerisi sunacaktır.</p>
     </div>
 
     <!-- Methodology details -->
