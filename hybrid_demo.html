@@ -90,7 +90,7 @@ textarea{resize:vertical;min-height:55px}
 </div>
 <div class="layout">
 <div class="sb">
-  <div><div class="st">API Adresi</div><input id="apiUrl" value="http://localhost:8003" oninput="schedH()"></div>
+  <div><div class="st">API Adresi</div><input id="apiUrl" value="" oninput="schedH()"></div>
   <div>
     <div class="st">Mod</div>
     <div class="mg">
@@ -191,6 +191,8 @@ function hcol(s){if(s<0.2)return'var(--g)';if(s<0.5)return'var(--y)';if(s<0.75)r
 function bar(lbl,val,col){return'<div class="bw"><div class="bl2"><span>'+lbl+'</span><span>'+(val*100).toFixed(1)+'%</span></div><div class="bt"><div class="bf" style="width:'+(val*100)+'%;background:'+col+'"></div></div></div>'}
 function showNotif(msg,type){const n=document.getElementById('notif');n.textContent=msg;n.className='notif show '+(type||'');setTimeout(()=>n.classList.remove('show'),2500)}
 function schedH(){clearTimeout(htimer);htimer=setTimeout(checkHealth,800)}
+// Sayfa yuklendiginde API URL'ini otomatik ayarla
+(function(){const el=document.getElementById('apiUrl');if(!el.value){const o=window.location.origin;el.value=(o==='null'||o==='file://')?'http://localhost:8003':o;}schedH();})();
 function setDot(id,ok){const d=document.getElementById(id);d.className='dot '+(ok?'ok':'err')}
 
 function bertCard(b){
