@@ -1023,7 +1023,7 @@
       <div class="shdr">Bağlantı</div>
       <label>API Adresi (bert_api.py — port 8001)</label>
       <div class="apirow">
-        <input type="text" id="apiUrl" value="http://localhost:8001" oninput="scheduleHealthCheck()"/>
+        <input type="text" id="apiUrl" value="" oninput="scheduleHealthCheck()"/>
       </div>
       <button class="btn btn-ghost btn-full btn-load" id="loadBtn" onclick="loadModel()">
         ⚡ Modeli Belleğe Yükle
@@ -1930,7 +1930,20 @@
     showNotif(`Toplu tahmin tamamlandı (${totalElapsed} ms).`, "ok");
   }
 
-  // Init
+  // Init — API URL'yi otomatik ayarla
+  (function initApiUrl() {
+    const el = document.getElementById('apiUrl');
+    if (!el.value) {
+      // Coolify'da window.location.origin + '/bert', local'de localhost:8001
+      const origin = window.location.origin;
+      if (origin.startsWith('http://localhost') || origin.startsWith('http://127.')) {
+        el.value = 'http://localhost:8001';
+      } else {
+        el.value = origin + '/bert';
+      }
+    }
+  })();
+
   checkHealth();
   setInterval(checkHealth, 30000);
   updateHistoryBadge();
