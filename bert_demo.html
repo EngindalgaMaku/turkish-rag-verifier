@@ -1121,20 +1121,56 @@
       <!-- Batch summary metrics -->
       <div class="score-panel">
         <div class="score-title">İstatistikler ve Metrikler</div>
-        <div class="score-grid">
+        <div class="score-grid" style="grid-template-columns: repeat(5, 1fr);">
           <div class="score-item"><div class="score-val" id="b-total">-</div><div class="score-lbl">Toplam Örnek</div></div>
           <div class="score-item"><div class="score-val" style="color:var(--g);" id="b-accept">-</div><div class="score-lbl">Kabul Edilen</div></div>
           <div class="score-item"><div class="score-val" style="color:var(--r);" id="b-block">-</div><div class="score-lbl">Red/İnceleme</div></div>
           <div class="score-item"><div class="score-val" style="color:var(--accent);" id="b-acc">-</div><div class="score-lbl">Accuracy</div></div>
+          <div class="score-item"><div class="score-val" style="color:var(--y);" id="b-macro-f1">-</div><div class="score-lbl">Macro F1</div></div>
         </div>
         
         <label style="margin-top:20px;">Sınıf Dağılımı</label>
         <div class="label-dist-bar" id="b-dist-bar"></div>
-        <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--dim); margin-top:4px; font-family:var(--mono);" id="b-dist-legend"></div>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; font-size:11px; color:var(--dim); margin-top:6px; font-family:var(--mono);" id="b-dist-legend"></div>
       </div>
-      
+
+      <!-- Per-class metrics table (only when gold_label present) -->
+      <div id="b-perclass-wrap" style="display:none; margin-top:16px;">
+        <div class="section-title">Sınıf Bazlı Metrikler (Precision / Recall / F1)</div>
+        <div class="batch-table-wrap">
+          <table id="b-perclass-table">
+            <thead>
+              <tr>
+                <th>Sınıf</th>
+                <th style="width:90px;">Precision</th>
+                <th style="width:90px;">Recall</th>
+                <th style="width:90px;">F1</th>
+                <th style="width:70px;">Destek</th>
+              </tr>
+            </thead>
+            <tbody id="b-perclass-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Confusion Matrix (only when gold_label present) -->
+      <div id="b-cm-wrap" style="display:none; margin-top:16px;">
+        <div class="section-title">Karışıklık Matrisi (Confusion Matrix)</div>
+        <div style="overflow-x:auto;">
+          <table id="b-cm-table" style="border-collapse:collapse; font-size:12px; font-family:var(--mono);">
+          </table>
+        </div>
+        <div style="font-size:11px; color:var(--dim); margin-top:6px;">Satır = Gerçek Etiket, Sütun = Tahmin Edilen Etiket</div>
+      </div>
+
+      <!-- Export buttons -->
+      <div style="display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;">
+        <button class="btn btn-ghost btn-sm" onclick="exportBatchCSV()">⬇️ CSV İndir</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportBatchJSON()">⬇️ JSON İndir</button>
+      </div>
+
       <!-- Batch Table -->
-      <div class="section-title">Ayrıntılı Sonuç Listesi</div>
+      <div class="section-title" style="margin-top:16px;">Ayrıntılı Sonuç Listesi</div>
       <div class="batch-table-wrap">
         <table id="batchTable">
           <thead>
@@ -1636,6 +1672,173 @@
     }
   }
 
+  // Store last batch data for export
+  let _lastBatchData = null;
+  let _lastBatchItems = null;
+
+  function computePerClassMetrics(results, items) {
+    const LABELS = ['supported','partially_supported','unsupported','contradicted','insufficient_context'];
+    // Check if gold labels exist
+    const hasGold = results.some((r, i) => items[i] && items[i].gold_label);
+    if (!hasGold) return null;
+
+    // Build confusion matrix: cm[actual][predicted]
+    const cm = {};
+    LABELS.forEach(a => { cm[a] = {}; LABELS.forEach(p => { cm[a][p] = 0; }); });
+
+    results.forEach((r, i) => {
+      const gold = items[i] && items[i].gold_label;
+      if (!gold) return;
+      const pred = r.predicted_label;
+      if (cm[gold] && cm[gold][pred] !== undefined) cm[gold][pred]++;
+    });
+
+    // Per-class P/R/F1
+    const metrics = {};
+    LABELS.forEach(lbl => {
+      let tp = cm[lbl][lbl] || 0;
+      let fp = LABELS.reduce((s, a) => s + (a !== lbl ? (cm[a][lbl] || 0) : 0), 0);
+      let fn = LABELS.reduce((s, p) => s + (p !== lbl ? (cm[lbl][p] || 0) : 0), 0);
+      let support = LABELS.reduce((s, p) => s + (cm[lbl][p] || 0), 0);
+      let precision = (tp + fp) > 0 ? tp / (tp + fp) : 0;
+      let recall    = (tp + fn) > 0 ? tp / (tp + fn) : 0;
+      let f1        = (precision + recall) > 0 ? 2 * precision * recall / (precision + recall) : 0;
+      metrics[lbl] = { precision, recall, f1, support };
+    });
+
+    // Macro F1 (only classes with support > 0)
+    const active = LABELS.filter(l => metrics[l].support > 0);
+    const macroF1 = active.length > 0
+      ? active.reduce((s, l) => s + metrics[l].f1, 0) / active.length
+      : 0;
+
+    return { metrics, cm, macroF1, LABELS };
+  }
+
+  function renderPerClassMetrics(pcm) {
+    const wrap = document.getElementById('b-perclass-wrap');
+    const tbody = document.getElementById('b-perclass-body');
+    if (!pcm) { wrap.style.display = 'none'; return; }
+    wrap.style.display = 'block';
+    tbody.innerHTML = '';
+
+    pcm.LABELS.forEach(lbl => {
+      const m = pcm.metrics[lbl];
+      if (m.support === 0) return;
+      const info = labelMapping[lbl] || { name: lbl, color: 'var(--accent)' };
+      const f1Color = m.f1 >= 0.8 ? 'var(--g)' : m.f1 >= 0.5 ? 'var(--y)' : 'var(--r)';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><span class="lgbadge" style="background:var(--surf); color:${info.color}; border:1px solid ${info.color};">${info.name}</span></td>
+        <td class="td-mono">${(m.precision*100).toFixed(1)}%</td>
+        <td class="td-mono">${(m.recall*100).toFixed(1)}%</td>
+        <td class="td-mono" style="color:${f1Color}; font-weight:700;">${(m.f1*100).toFixed(1)}%</td>
+        <td class="td-mono">${m.support}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    // Macro row
+    const macroTr = document.createElement('tr');
+    macroTr.style.borderTop = '2px solid var(--bdr2)';
+    const mf1Color = pcm.macroF1 >= 0.8 ? 'var(--g)' : pcm.macroF1 >= 0.5 ? 'var(--y)' : 'var(--r)';
+    macroTr.innerHTML = `
+      <td style="font-weight:700; color:var(--txt);">Macro Avg</td>
+      <td class="td-mono">—</td>
+      <td class="td-mono">—</td>
+      <td class="td-mono" style="color:${mf1Color}; font-weight:700;">${(pcm.macroF1*100).toFixed(1)}%</td>
+      <td class="td-mono">—</td>
+    `;
+    tbody.appendChild(macroTr);
+  }
+
+  function renderConfusionMatrix(pcm) {
+    const wrap = document.getElementById('b-cm-wrap');
+    const table = document.getElementById('b-cm-table');
+    if (!pcm) { wrap.style.display = 'none'; return; }
+
+    const activeLabels = pcm.LABELS.filter(l => pcm.metrics[l].support > 0);
+    if (activeLabels.length < 2) { wrap.style.display = 'none'; return; }
+    wrap.style.display = 'block';
+
+    // Find max value for color scaling
+    let maxVal = 0;
+    activeLabels.forEach(a => activeLabels.forEach(p => { if (pcm.cm[a][p] > maxVal) maxVal = pcm.cm[a][p]; }));
+
+    let html = '<thead><tr><th style="background:var(--surf2); padding:6px 10px; border:1px solid var(--bdr2); font-size:10px; color:var(--dim);">Gerçek \\ Tahmin</th>';
+    activeLabels.forEach(p => {
+      const info = labelMapping[p] || { name: p, color: 'var(--accent)' };
+      html += `<th style="background:var(--surf2); padding:6px 8px; border:1px solid var(--bdr2); color:${info.color}; font-size:10px; white-space:nowrap;">${info.name}</th>`;
+    });
+    html += '</tr></thead><tbody>';
+
+    activeLabels.forEach(a => {
+      const aInfo = labelMapping[a] || { name: a, color: 'var(--accent)' };
+      html += `<tr><td style="background:var(--surf2); padding:6px 10px; border:1px solid var(--bdr2); color:${aInfo.color}; font-size:10px; font-weight:700; white-space:nowrap;">${aInfo.name}</td>`;
+      activeLabels.forEach(p => {
+        const val = pcm.cm[a][p] || 0;
+        const isDiag = a === p;
+        const intensity = maxVal > 0 ? val / maxVal : 0;
+        let bg, color;
+        if (isDiag && val > 0) {
+          bg = `rgba(16,185,129,${0.1 + intensity * 0.5})`;
+          color = 'var(--g)';
+        } else if (!isDiag && val > 0) {
+          bg = `rgba(239,68,68,${0.05 + intensity * 0.4})`;
+          color = 'var(--r)';
+        } else {
+          bg = 'var(--surf)';
+          color = 'var(--dim)';
+        }
+        html += `<td style="background:${bg}; color:${color}; padding:6px 12px; border:1px solid var(--bdr2); text-align:center; font-weight:${val>0?'700':'400'};">${val}</td>`;
+      });
+      html += '</tr>';
+    });
+    html += '</tbody>';
+    table.innerHTML = html;
+  }
+
+  function exportBatchCSV() {
+    if (!_lastBatchData || !_lastBatchItems) return;
+    const LABELS = ['supported','partially_supported','unsupported','contradicted','insufficient_context'];
+    const rows = [['#','Soru','Iddia/Cevap','Gold','Tahmin','Guven','Karar','Dogru']];
+    _lastBatchData.results.forEach((r, i) => {
+      const orig = _lastBatchItems[i] || {};
+      rows.push([
+        i+1,
+        `"${(orig.question||'').replace(/"/g,'""')}"`,
+        `"${(orig.claim||orig.answer||'').replace(/"/g,'""')}"`,
+        orig.gold_label || '',
+        r.predicted_label,
+        (r.confidence*100).toFixed(1)+'%',
+        r.decision,
+        r.is_correct !== null ? (r.is_correct ? 'Evet' : 'Hayir') : ''
+      ]);
+    });
+    const csv = rows.map(r => r.join(',')).join('\n');
+    const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `bert_batch_${Date.now()}.csv`;
+    a.click();
+    showNotif('CSV indirildi.', 'ok');
+  }
+
+  function exportBatchJSON() {
+    if (!_lastBatchData || !_lastBatchItems) return;
+    const out = _lastBatchData.results.map((r, i) => ({
+      index: i+1,
+      input: _lastBatchItems[i] || {},
+      result: r
+    }));
+    const blob = new Blob([JSON.stringify(out, null, 2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `bert_batch_${Date.now()}.json`;
+    a.click();
+    showNotif('JSON indirildi.', 'ok');
+  }
+
   function renderBatchResults(data, totalElapsed) {
     document.getElementById('b-total').textContent = data.count;
     document.getElementById('b-accept').textContent = data.summary.n_accept;
@@ -1664,7 +1867,6 @@
       const info = labelMapping[lbl] || { name: lbl, color: 'var(--accent)' };
       const pct = (count / total * 100).toFixed(1);
       
-      // Add segment to bar
       const seg = document.createElement('div');
       seg.className = 'label-dist-seg';
       seg.style.width = pct + '%';
@@ -1672,10 +1874,30 @@
       seg.title = `${info.name}: ${count} (${pct}%)`;
       bar.appendChild(seg);
       
-      // Add entry to legend
       const leg = document.createElement('span');
       leg.innerHTML = `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${info.color}; margin-right:4px;"></span>${info.name}: ${count} (${pct}%)`;
       legend.appendChild(leg);
+    }
+
+    // Parse original items for metrics
+    let items = [];
+    try { items = JSON.parse(document.getElementById('batchText').value); } catch(e) {}
+    _lastBatchData = data;
+    _lastBatchItems = items;
+
+    // Per-class metrics + confusion matrix
+    const pcm = computePerClassMetrics(data.results, items);
+    renderPerClassMetrics(pcm);
+    renderConfusionMatrix(pcm);
+
+    // Macro F1
+    const mf1El = document.getElementById('b-macro-f1');
+    if (pcm) {
+      mf1El.textContent = (pcm.macroF1 * 100).toFixed(1) + '%';
+      mf1El.style.color = pcm.macroF1 >= 0.8 ? 'var(--g)' : pcm.macroF1 >= 0.5 ? 'var(--y)' : 'var(--r)';
+    } else {
+      mf1El.textContent = '—';
+      mf1El.style.color = 'var(--dim)';
     }
     
     // Fill Table
@@ -1683,7 +1905,7 @@
     tbody.innerHTML = '';
     
     data.results.forEach((r, idx) => {
-      const orig = JSON.parse(document.getElementById('batchText').value)[idx] || {};
+      const orig = items[idx] || {};
       const claimText = orig.claim || orig.answer || '—';
       const lblInfo = labelMapping[r.predicted_label] || { name: r.predicted_label, color: 'var(--accent)' };
       
