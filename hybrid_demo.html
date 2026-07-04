@@ -136,14 +136,10 @@ textarea{resize:vertical;min-height:55px}
     </div>
   </div>
   <div>
-    <div class="st">Ornek Senaryolar</div>
+    <div class="st">Hazır Test Setleri (JSON)</div>
     <div class="exl">
-      <button class="eb" onclick="loadEx('sc')"><span class="ed" style="background:var(--r)"></span>Kisa -- RAM celiski (NLI)</button>
-      <button class="eb" onclick="loadEx('so')"><span class="ed" style="background:var(--g)"></span>Kisa -- Ataturk dogru (NLI)</button>
-      <button class="eb" onclick="loadEx('lc')"><span class="ed" style="background:var(--r)"></span>Uzun -- II. Dunya Savasi (BERT)</button>
-      <button class="eb" onclick="loadEx('lo')"><span class="ed" style="background:var(--g)"></span>Uzun -- Kucuk Menderes (BERT)</button>
-      <button class="eb" onclick="loadEx('in')"><span class="ed" style="background:var(--bl)"></span>Yetersiz -- Fakir Baykurt</button>
-      <button class="eb" onclick="loadEx('pa')"><span class="ed" style="background:var(--y)"></span>Kismi -- API erisim (Ensemble)</button>
+      <button class="eb" onclick="loadBatchEx('computer')"><span class="ed" style="background:#38bdf8"></span>💻 Bilgisayar &amp; Teknoloji (10 Örnek)</button>
+      <button class="eb" onclick="loadBatchEx('medical')"><span class="ed" style="background:#ef4444"></span>🩺 Tıp &amp; Sağlık Bilimleri (10 Örnek)</button>
     </div>
   </div>
   <button class="rb" id="runBtn" onclick="runDetect()">Analiz Et</button>
@@ -167,7 +163,7 @@ textarea{resize:vertical;min-height:55px}
       <textarea id="batchIn" rows="6" style="font-family:monospace;font-size:11px" placeholder='{"context":"...","answer":"...","gold_label":"supported"}'></textarea>
       <div style="display:flex;gap:7px;margin-top:7px">
         <button class="rb" style="flex:1" onclick="runBatch()">Batch Calistir</button>
-        <button class="rb" style="flex:0 0 100px;background:var(--border);color:var(--text)" onclick="loadBatchEx()">Ornek Yukle</button>
+        <button class="rb" style="flex:0 0 100px;background:var(--border);color:var(--text)" onclick="loadBatchEx('computer')">Ornek Yukle</button>
       </div>
     </div>
     <!-- Batch sonuc paneli -->
@@ -375,26 +371,40 @@ textarea{resize:vertical;min-height:55px}
 </div>
 <div class="notif" id="notif"></div>
 <script>
-const EX={
-  sc:{ctx:"RAM gecici bellektir, elektrik kesilince kaybolur.",ans:"RAM kalici bellektir.",qst:"RAM kalici mi?",gold:"contradicted"},
-  so:{ctx:"Ataturk 1881 yilinda Selanik'te dogmustur.",ans:"Ataturk 1881 yilinda Selanik'te dogmustur.",qst:"Ataturk nerede dogdu?",gold:"supported"},
-  lc:{ctx:"II. Dunya Savasi, 1939-1945 yillari arasinda gerceklesen kuresel savas. Mihver ve Muttefik devletler arasinda yasanmistir. Savasin cikis nedenleri arasinda Almanya'nin yayilmaci politikasi ve Versay Antlasmasi'nin yarattigi gerilimler sayilabilir. Savas, siyasi, ekonomik ve insani sonuclari bakimindan 20. yuzyilin en yikici olaylarindan biridir.",ans:"Savas yalnizca tarafsiz devletler arasinda yasanmistir.",qst:"Baglamda savas hangi devlet gruplari arasinda yasanmistir?",gold:"contradicted"},
-  lo:{ctx:"Kucuk Menderes, Bati Anadolu'da yer alan akarsu sistemlerinden biridir. Ege Bolgesindeki ovalar ve tarim alanlariyla iliskilidir. Havzasi yerlesim ve uretim acisindan onem tasir. Nehir, Izmir iline kadar uzanir ve Ege Denizi'ne dokulur.",ans:"Kucuk Menderes ege bolgesindeki ovalar ve tarim alanlariyla iliskilidir.",qst:"Baglamda Kucuk Menderes icin hangi cikarim yapilabilir?",gold:"supported"},
-  in:{ctx:"Fakir Baykurt, Turk romanci ve ogretmendir. Koy yasamini, koylulerin sorunlarini ve toplumsal esitsizlikleri konu alan eserleriyle bilinir. Yilanlarin Ocu, yazarin taninmis romanlarindan biridir.",ans:"Baglamda bu soruyu yanitlayacak bilgi yer almiyor.",qst:"Baglamda Fakir Baykurt hangi yil dogmustur?",gold:"insufficient_context"},
-  pa:{ctx:"API, yazilim bilesenlerin birbirleriyle iletisim kurmasini saglayan arayuzdur. Uygulamalar API'ler araciligiyla veri alabilir veya hizmetlere erisebilir.",ans:"Bir uygulama baska bir hizmete API uzerinden ulasabilir. Metin API'nin hizmetlere erisimi kapatan bir yapi oldugunu soyler.",qst:"Baglamda su iddia destekleniyor mu: Bir uygulama baska bir hizmete API uzerinden ulasabilir.",gold:"partially_supported"}
-};
-const BATCH_EX=[
-  {context:"RAM gecici bellektir, elektrik kesilince kaybolur.",answer:"RAM kalici bellektir.",gold_label:"contradicted"},
-  {context:"Ataturk 1881 yilinda Selanik'te dogmustur.",answer:"Ataturk 1881 yilinda Selanik'te dogmustur.",gold_label:"supported"},
-  {context:"II. Dunya Savasi, 1939-1945 yillari arasinda gerceklesen kuresel savas. Mihver ve Muttefik devletler arasinda yasanmistir. Savasin cikis nedenleri arasinda Almanya'nin yayilmaci politikasi ve Versay Antlasmasi'nin yarattigi gerilimler sayilabilir.",answer:"Savas yalnizca tarafsiz devletler arasinda yasanmistir.",gold_label:"contradicted"},
-  {context:"Kucuk Menderes, Bati Anadolu'da yer alan akarsu sistemlerinden biridir. Ege Bolgesindeki ovalar ve tarim alanlariyla iliskilidir. Havzasi yerlesim ve uretim acisindan onem tasir.",answer:"Kucuk Menderes ege bolgesindeki ovalar ve tarim alanlariyla iliskilidir.",gold_label:"supported"},
-  {context:"Fakir Baykurt, Turk romanci ve ogretmendir. Koy yasamini, koylulerin sorunlarini ve toplumsal esitsizlikleri konu alan eserleriyle bilinir.",answer:"Baglamda bu soruyu yanitlayacak bilgi yer almiyor.",gold_label:"insufficient_context"}
+const BATCH_COMPUTER = [
+  {"context":"RAM, bilgisayarın geçici belleğidir. Çalışan programların ve o anda kullanılan verilerin hızlı erişim için tutulmasını sağlar.","answer":"RAM, çalışan programların geçici olarak tutulduğu hızlı erişimli bellektir.","gold_label":"supported"},
+  {"context":"SSD'ler verileri flash bellek hücrelerinde saklar. HDD'lerde ise dönen manyetik plakalar ve hareketli okuma-yazma kafaları bulunur.","answer":"SSD'ler verileri dönen manyetik plakalar üzerinde saklar.","gold_label":"contradicted"},
+  {"context":"DNS, alan adlarını IP adreslerine çevirmek için kullanılır. Örneğin bir web sitesinin adını yazdığımızda, DNS bu adın karşılık geldiği IP adresini bulmaya yardımcı olur.","answer":"DNS, alan adlarını IP adreslerine çevirmek için kullanılır.","gold_label":"supported"},
+  {"context":"HTTP, istemci ile sunucu arasında veri alışverişi yapılmasını sağlayan bir protokoldür. HTTPS ise bu iletişimi şifreli hale getirir.","answer":"HTTP, istemci ile sunucu arasında veri aktarımı sağlar ve tüm HTTP bağlantıları varsayılan olarak şifrelenmiştir.","gold_label":"partially_supported"},
+  {"context":"IPv4 adresleri 32 bit uzunluğundadır ve genellikle noktalı ondalık biçimde yazılır. Örneğin 192.168.1.1 bir IPv4 adresidir.","answer":"IPv4 adresleri 128 bit uzunluğundadır.","gold_label":"contradicted"},
+  {"context":"Güvenlik duvarı, ağ trafiğini belirli kurallara göre denetler. Bazı bağlantılara izin verirken bazı bağlantıları engelleyebilir.","answer":"Güvenlik duvarı, ağ trafiğini kurallara göre kontrol eder.","gold_label":"supported"},
+  {"context":"Çok faktörlü kimlik doğrulama, kullanıcıdan yalnızca parola değil ek bir doğrulama adımı daha ister. Bu ek adım SMS kodu, doğrulama uygulaması veya güvenlik anahtarı olabilir.","answer":"Çok faktörlü kimlik doğrulama yalnızca parolayla giriş yapılmasını sağlar.","gold_label":"contradicted"},
+  {"context":"Yedekleme, verilerin kaybolması durumunda geri yüklenebilmesi için kopyalarının saklanması işlemidir. Yedekler harici disklerde, ağ depolama alanlarında veya bulut servislerinde tutulabilir.","answer":"Yedekleme, verilerin kaybolması durumunda geri yüklenmesini kolaylaştırır; ayrıca yedekler sadece CD üzerinde saklanabilir.","gold_label":"partially_supported"},
+  {"context":"Ekran kartı, özellikle grafik işlemlerinin yürütülmesinde görev alır. Oyunlar, video işleme ve bazı yapay zekâ işlemleri ekran kartından yararlanabilir.","answer":"Ekran kartının üzerinde kaç adet HDMI çıkışı bulunduğu belirtilmiştir.","gold_label":"unsupported"},
+  {"context":"Bilgisayar kasasının ön panelinde güç düğmesi, USB bağlantıları ve kulaklık girişi yer almaktadır. Kasanın arka tarafında ise anakarta bağlı farklı bağlantı noktaları bulunur.","answer":"Kablosuz ağ şifresi modem arayüzünden değiştirilebilir.","gold_label":"insufficient_context"}
+];
+
+const BATCH_MEDICAL = [
+  {"context":"Hastanın boğaz ağrısı ve hafif ateş şikâyeti vardır. Muayenede bademciklerde kızarıklık görülmüş, ancak nefes darlığı saptanmamıştır.","answer":"Hastada boğaz ağrısı ve hafif ateş vardır; muayenede nefes darlığı bulgusu yoktur.","gold_label":"supported"},
+  {"context":"Kan tahlilinde hastanın hemoglobin değeri düşük bulunmuştur. Doktor, bu durumun kansızlıkla uyumlu olabileceğini belirtmiştir.","answer":"Hastanın hemoglobin değeri normal aralıktadır.","gold_label":"contradicted"},
+  {"context":"Hasta son üç gündür öksürük tarif etmektedir. Akciğer dinlemesinde belirgin hırıltı duyulmamıştır. Ateşi 37.2 derece ölçülmüştür.","answer":"Hastaya zatürre tanısı konulmuştur.","gold_label":"unsupported"},
+  {"context":"Doktor hastaya bol sıvı tüketmesini ve iki gün istirahat etmesini önermiştir. Antibiyotik başlanmasına gerek görülmemiştir.","answer":"Hastaya iki gün istirahat önerilmiş ve antibiyotik tedavisi başlanmıştır.","gold_label":"partially_supported"},
+  {"context":"Hastanın diz ağrısı merdiven çıkarken artmaktadır. Röntgende belirgin kırık bulgusu saptanmamıştır.","answer":"Hastanın göz tansiyonu yüksek bulunmuştur.","gold_label":"insufficient_context"},
+  {"context":"Acil servise başvuran hastanın tansiyonu 160/95 mmHg ölçülmüştür. Hastaya dinlenmesi önerilmiş ve tansiyon takibi planlanmıştır.","answer":"Hastanın tansiyonu yüksek ölçülmüş ve takip edilmesi planlanmıştır.","gold_label":"supported"},
+  {"context":"Raporda hastanın şeker ölçümünün açlıkta 92 mg/dL olduğu yazmaktadır. Doktor bu değerin normal sınırlarda olduğunu belirtmiştir.","answer":"Hastanın açlık kan şekeri yüksek bulunmuştur.","gold_label":"contradicted"},
+  {"context":"Hasta sabahları mide bulantısı yaşadığını belirtmiştir. Muayene notunda karın ağrısı ya da kusma şikâyeti olmadığı yazmaktadır.","answer":"Hastada karın ağrısı ve kusma şikâyeti vardır.","gold_label":"contradicted"},
+  {"context":"Kontrol muayenesinde yaranın büyük ölçüde iyileştiği, ancak pansumana birkaç gün daha devam edilmesi gerektiği belirtilmiştir.","answer":"Yara büyük ölçüde iyileşmiştir ve pansumana birkaç gün daha devam edilmesi önerilmiştir.","gold_label":"supported"},
+  {"context":"Hasta baş ağrısı nedeniyle başvurmuştur. Muayenede nörolojik defisit saptanmamış, ancak ağrının tekrarlaması halinde yeniden değerlendirme önerilmiştir.","answer":"Hastanın baş ağrısı vardır ve nörolojik muayenede belirgin bir sorun saptanmamıştır; ayrıca ağrı tekrarlarsa tekrar değerlendirme önerilmiştir.","gold_label":"supported"}
 ];
 
 let mode="auto",htimer=null;
 function setMode(m){mode=m;document.querySelectorAll('.mb').forEach(b=>b.classList.remove('active'));document.getElementById('mode-'+m).classList.add('active')}
-function loadEx(k){const e=EX[k];document.getElementById('ctx').value=e.ctx;document.getElementById('ans').value=e.ans;document.getElementById('qst').value=e.qst||'';document.getElementById('gold').value=e.gold||'';showNotif('Ornek yuklendi','ok')}
-function loadBatchEx(){document.getElementById('batchIn').value=BATCH_EX.map(x=>JSON.stringify(x)).join('\n');showNotif('Batch ornegi yuklendi','ok')}
+function loadBatchEx(type){
+  const dataset = type === 'medical' ? BATCH_MEDICAL : BATCH_COMPUTER;
+  document.getElementById('batchIn').value = dataset.map(x=>JSON.stringify(x)).join('\n');
+  sw('batch');
+  showNotif((type === 'medical' ? 'Tıp' : 'Bilgisayar') + ' test seti yüklendi','ok');
+}
 function sw(t){document.querySelectorAll('.tab').forEach(el=>el.classList.remove('active'));document.querySelectorAll('.pg').forEach(el=>el.classList.remove('active'));document.getElementById('tab-'+t).classList.add('active');document.getElementById('pg-'+t).classList.add('active');const sb=document.querySelector('.sb');if(sb){sb.style.display=(t==='about'?'none':'flex')}}
 function dc(d){return{accept:'var(--g)',warn:'var(--y)',revise:'var(--r)',insufficient_context:'var(--bl)'}[d]||'var(--muted)'}
 function de(d){return{accept:'ACCEPT',warn:'WARN',revise:'REVISE',insufficient_context:'INSUF'}[d]||d}
