@@ -23,18 +23,6 @@ nltk.download('punkt_tab', quiet=True)
 from nltk.tokenize import sent_tokenize
 
 import os
-# ---------------------------------------------------------------------------
-# Embedding modeli — modül import edildiğinde bir kez yüklenir (startup'ta)
-# ---------------------------------------------------------------------------
-_emb_model = None
-def get_emb_model():
-    global _emb_model
-    if _emb_model is None:
-        from sentence_transformers import SentenceTransformer
-        _emb_model = SentenceTransformer(
-            'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2'
-        )
-    return _emb_model
 BERT_URL = os.getenv("BERT_URL", "http://localhost:8001")
 NLI_URL  = os.getenv("NLI_URL",  "http://localhost:8002")
 
@@ -132,218 +120,107 @@ def _nli_danger(nli: dict) -> float:
 
 async def fuse(client: httpx.AsyncClient, context: str, answer: str, bert: dict, nli: dict) -> dict:
     """
-    NLI-merkezli, BERT-tetiklemeli tamamlayıcı hibrit doğrulama hattı (Embedding Destekli).
+    NLI-merkezli, BERT-tetiklemeli tamamlayıcı hibrit doğrulama hattı.
     """
-    import re
-    import numpy as np
     bert_label = bert.get("predicted_label", "supported")
     bert_conf  = bert.get("confidence", 0.5)
     nli_con    = nli.get("contradiction_score", 0.0)
+
     nli_sup    = nli.get("support_score", 0.0)
     nli_dec    = nli.get("decision", "warn")
-    
-    # ---------------------------------------------------------------------------
-    # Embedding Hesaplama
-    # ---------------------------------------------------------------------------
-    claims_details = []
-    emb_max = 0.0
-    emb_min = 0.0
-    
-    ctx_sents = [s.strip() for s in sent_tokenize(context, language='turkish') if s.strip()]
+
+    # Cevap cümlelerine böl (claim-level işlemler için)
     ans_sents = [s.strip() for s in sent_tokenize(answer, language='turkish') if s.strip()]
-    
-    if ctx_sents and ans_sents:
-        try:
-            import functools
-            loop = asyncio.get_event_loop()
-            emb_model = get_emb_model()
-            # CPU-yoğun encode işlemini thread pool'a gönder — event loop'u bloke etme
-            ctx_embs, ans_embs = await asyncio.gather(
-                loop.run_in_executor(None, functools.partial(emb_model.encode, ctx_sents)),
-                loop.run_in_executor(None, functools.partial(emb_model.encode, ans_sents)),
-            )
-            
-            ctx_norms = np.linalg.norm(ctx_embs, axis=1, keepdims=True)
-            ans_norms = np.linalg.norm(ans_embs, axis=1, keepdims=True)
-            ctx_norms[ctx_norms == 0] = 1.0
-            ans_norms[ans_norms == 0] = 1.0
-            
-            ctx_normed = ctx_embs / ctx_norms
-            ans_normed = ans_embs / ans_norms
-            
-            cos_scores = np.dot(ans_normed, ctx_normed.T)
-            
-            for i, claim_text in enumerate(ans_sents):
-                best_idx = int(np.argmax(cos_scores[i]))
-                max_sim = float(cos_scores[i, best_idx])
-                best_sent = ctx_sents[best_idx]
-                claims_details.append({
-                    "claim": claim_text,
-                    "best_evidence_sentence": best_sent,
-                    "max_similarity": round(max_sim, 4)
-                })
-            
-            emb_max = float(np.max(cos_scores))
-            emb_min = float(np.min(np.max(cos_scores, axis=1)))
-        except Exception as e:
-            pass
-            
-    embedding_data = {
-        "emb_max": round(emb_max, 4),
-        "emb_min": round(emb_min, 4),
-        "claims": claims_details
-    }
-    
+
     # 1. Güçlü NLI contradiction veto
     if nli_con >= 0.80:
         return {
             "decision": "revise",
             "source": "nli_veto",
             "confidence": nli_con,
-            "reason": f"Güçlü NLI çelişkisi (con={nli_con:.2f})",
-            "embedding": embedding_data
+            "reason": f"Güçlü NLI çelişkisi (con={nli_con:.2f})"
         }
-        
+
     # 2. BERT supported tek başına kabul ettiremez
     if nli_sup < 0.80 and bert_label == "supported":
         return {
             "decision": "warn",
             "source": "bert_supported_veto",
             "confidence": bert_conf,
-            "reason": f"BERT supported verdi ama NLI desteği yetersiz (sup={nli_sup:.2f})",
-            "embedding": embedding_data
+            "reason": f"BERT supported verdi ama NLI desteği yetersiz (sup={nli_sup:.2f})"
         }
-        
-    # 2.5. Gating: Alakasız bağlam koruması (Low Relevance)
-    if emb_max < 0.35 and nli_sup < 0.40:
-        return {
-            "decision": "insufficient_context",
-            "source": "embedding_gating",
-            "confidence": 1.0 - emb_max,
-            "reason": f"Alakasız bağlam: Benzerlik skoru çok düşük (emb_max={emb_max:.2f})",
-            "embedding": embedding_data
-        }
-        
+
     # 3. BERT partially_supported ise claim-level NLI kontrolü tetikler
     if bert_label == "partially_supported":
         if len(ans_sents) > 1:
             tasks = []
             for claim in ans_sents:
-                payload = {
-                    "context": context,
-                    "answer": claim,
-                    "question": claim
-                }
-                tasks.append(call_nli(client, payload))
+                tasks.append(call_nli(client, {"context": context, "answer": claim, "question": claim}))
             claim_results = await asyncio.gather(*tasks)
-            
+
             any_contra = False
             any_unsupp = False
-            all_supp = True
-            
-            for cr, claim_det in zip(claim_results, claims_details):
-                if not cr or "error" in cr or claim_det["max_similarity"] < 0.35:
-                    any_unsupp = True
-                    all_supp = False
-                    continue
+            all_supp   = True
+            for cr in claim_results:
+                if not cr or "error" in cr:
+                    any_unsupp = True; all_supp = False; continue
                 c_dec = cr.get("decision", "warn")
                 c_con = cr.get("contradiction_score", 0.0)
                 c_sup = cr.get("support_score", 0.0)
-                
                 if c_dec == "revise" or c_con >= 0.30:
-                    any_contra = True
-                    all_supp = False
+                    any_contra = True; all_supp = False
                 elif c_dec in ("warn", "insufficient_context") or c_sup < 0.80:
-                    any_unsupp = True
-                    all_supp = False
-                    
+                    any_unsupp = True; all_supp = False
+
             if any_contra:
-                return {
-                    "decision": "revise",
-                    "source": "claim_level_nli",
-                    "confidence": bert_conf,
-                    "reason": "BERT partial dedi; iddia seviyesinde çelişki bulundu.",
-                    "embedding": embedding_data
-                }
+                return {"decision": "revise", "source": "claim_level_nli", "confidence": bert_conf,
+                        "reason": "BERT partial dedi; iddia seviyesinde çelişki bulundu."}
             elif any_unsupp:
-                return {
-                    "decision": "warn",
-                    "source": "claim_level_nli",
-                    "confidence": bert_conf,
-                    "reason": "BERT partial dedi; iddia seviyesinde yetersiz destek bulundu.",
-                    "embedding": embedding_data
-                }
+                return {"decision": "warn",   "source": "claim_level_nli", "confidence": bert_conf,
+                        "reason": "BERT partial dedi; iddia seviyesinde yetersiz destek bulundu."}
             elif all_supp:
-                return {
-                    "decision": "accept",
-                    "source": "claim_level_nli",
-                    "confidence": bert_conf,
-                    "reason": "BERT partial dedi; tüm iddialar başarıyla desteklendi.",
-                    "embedding": embedding_data
-                }
+                return {"decision": "accept", "source": "claim_level_nli", "confidence": bert_conf,
+                        "reason": "BERT partial dedi; tüm iddialar başarıyla desteklendi."}
         else:
-            return {
-                "decision": "warn",
-                "source": "bert_partial_fallback",
-                "confidence": bert_conf,
-                "reason": "BERT kısmi destek dedi (tek cümle).",
-                "embedding": embedding_data
-            }
-            
+            return {"decision": "warn", "source": "bert_partial_fallback", "confidence": bert_conf,
+                    "reason": "BERT kısmi destek dedi (tek cümle)."}
+
     # 4. BERT contradicted ama NLI desteği yüksekse (Çelişki Uyuşmazlığı)
     if bert_label == "contradicted" and nli_sup >= 0.80:
         if len(ans_sents) > 1:
             tasks = []
             for claim in ans_sents:
-                payload = {
-                    "context": context,
-                    "answer": claim,
-                    "question": claim
-                }
-                tasks.append(call_nli(client, payload))
+                tasks.append(call_nli(client, {"context": context, "answer": claim, "question": claim}))
             claim_results = await asyncio.gather(*tasks)
-            
-            any_contra = False
-            for cr, claim_det in zip(claim_results, claims_details):
-                if cr and "error" not in cr:
-                    c_dec = cr.get("decision", "warn")
-                    c_con = cr.get("contradiction_score", 0.0)
-                    if c_dec == "revise" or c_con >= 0.30 or claim_det["max_similarity"] < 0.35:
-                        any_contra = True
+            any_contra = any(
+                cr and "error" not in cr and (cr.get("decision") == "revise" or cr.get("contradiction_score", 0.0) >= 0.30)
+                for cr in claim_results
+            )
             if any_contra:
-                return {
-                    "decision": "revise",
-                    "source": "conflict_claim_level_nli",
-                    "confidence": bert_conf,
-                    "reason": "BERT çelişki bildirdi; iddia seviyesinde çelişen alt cümle doğrulandı.",
-                    "embedding": embedding_data
-                }
-                
+                return {"decision": "revise", "source": "conflict_claim_level_nli", "confidence": bert_conf,
+                        "reason": "BERT çelişki bildirdi; iddia seviyesinde çelişen alt cümle doğrulandı."}
         return {
             "decision": "warn",
             "source": "conflict_safe_warn",
             "confidence": max(bert_conf, nli_sup),
-            "reason": f"Uyuşmazlık: BERT çelişki ({bert_conf:.2f}) derken NLI destek ({nli_sup:.2f}) bildirdi. Güvenli karar: WARN",
-            "embedding": embedding_data
+            "reason": f"Uyuşmazlık: BERT çelişki ({bert_conf:.2f}) derken NLI destek ({nli_sup:.2f}) bildirdi. Güvenli karar: WARN"
         }
-            
-    # 5. NLI güçlü destekliyse ve embedding konu uyumu varsa kabul
-    if nli_sup >= 0.85 and nli_con < 0.10 and emb_max >= 0.45:
+
+    # 5. NLI güçlü destekliyse kabul
+    if nli_sup >= 0.85 and nli_con < 0.10:
         return {
             "decision": "accept",
             "source": "nli_strong_support",
             "confidence": nli_sup,
-            "reason": f"Güçlü NLI ve benzerlik desteği (sup={nli_sup:.2f}, con={nli_con:.2f}, emb={emb_max:.2f})",
-            "embedding": embedding_data
+            "reason": f"Güçlü NLI desteği (sup={nli_sup:.2f}, con={nli_con:.2f})"
         }
-        
+
     # 6. Destek zayıfsa güvenli karar
     return {
         "decision": "warn",
         "source": "fallback_warn",
         "confidence": max(nli_sup, nli_con),
-        "reason": f"Düşük/belirsiz destek veya konu uyuşmazlığı: NLI sup={nli_sup:.2f}, con={nli_con:.2f}, emb={emb_max:.2f}",
-        "embedding": embedding_data
+        "reason": f"Düşük/belirsiz destek: NLI sup={nli_sup:.2f}, con={nli_con:.2f}"
     }
 
 

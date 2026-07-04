@@ -510,39 +510,7 @@ function nliCard(n){
     +'<div style="margin-top:7px">'+bar('Support',n.support_score,'var(--g)')+bar('Contradiction',n.contradiction_score,'var(--r)')+bar('Neutral',n.neutral_score,'var(--muted)')+'</div></div>';
 }
 
-function embeddingCard(d){
-  const emb=d.embedding;
-  if(!emb)return'';
-  const emax=emb.emb_max||0;
-  const emin=emb.emb_min||0;
-  const ecol=emax>=0.7?'#10b981':emax>=0.4?'#f59e0b':'#ef4444';
-  let claimsHtml='';
-  if(emb.claims&&emb.claims.length>0){
-    emb.claims.forEach(c=>{
-      const simPct=Math.round((c.max_similarity||0)*100);
-      const simCol=simPct>=70?'#10b981':simPct>=40?'#f59e0b':'#ef4444';
-      claimsHtml+='<div style="margin:8px 0;padding:8px;background:var(--panel);border-radius:6px;border-left:3px solid '+simCol+'">'
-        +'<div style="font-size:11px;color:var(--muted);margin-bottom:3px">İddia:</div>'
-        +'<div style="font-size:12px;margin-bottom:5px">'+c.claim+'</div>'
-        +'<div style="font-size:11px;color:var(--muted);margin-bottom:3px">En İyi Kanıt Cümlesi:</div>'
-        +'<div style="font-size:12px;font-style:italic;color:var(--text);margin-bottom:5px">'+c.best_evidence_sentence+'</div>'
-        +'<div style="display:flex;align-items:center;gap:6px">'
-        +'<div style="flex:1;height:4px;background:var(--border);border-radius:2px"><div style="height:100%;width:'+simPct+'%;background:'+simCol+';border-radius:2px"></div></div>'
-        +'<span style="font-size:11px;font-weight:700;color:'+simCol+'">'+simPct+'%</span>'
-        +'</div>'
-        +'</div>';
-    });
-  }
-  return'<div class="rc" style="grid-column:1/-1">'
-    +'<div class="rch"><div class="rct">Embedding Kanıt Analizi</div><span class="rtag" style="background:rgba(139,92,246,.15);color:#a78bfa">MiniLM</span></div>'
-    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0">'
-    +'<div style="text-align:center"><div style="font-size:11px;color:var(--muted)">Max Benzerlik</div><div style="font-size:22px;font-weight:700;color:'+ecol+'">'+Math.round(emax*100)+'%</div></div>'
-    +'<div style="text-align:center"><div style="font-size:11px;color:var(--muted)">Min Benzerlik</div><div style="font-size:22px;font-weight:700;color:var(--muted)">'+Math.round(emin*100)+'%</div></div>'
-    +'</div>'
-    +'<div style="font-size:11px;font-weight:600;color:var(--muted);margin:8px 0 4px">İDDİA BAZLI KANIT EŞLEŞMELERİ</div>'
-    +claimsHtml
-    +'</div>';
-}
+
 
 function hybridCard(d){
   const hs=d.hallucination_score,hp=Math.round(hs*100),hc2=hcol(hs);
@@ -625,7 +593,7 @@ async function runDetect(){
     const rl={bert:'BERT (uzun baglamli)',nli:'NLI (kisa baglamli)',ensemble:'Ensemble (her ikisi)'};
     const rd={bert:d.context_words+' kelime -> berturk_exp020 fine-tuned',nli:d.context_words+' kelime -> mDeBERTa zero-shot NLI',ensemble:d.context_words+' kelime -> Her iki model paralel calistirildi'};
     document.getElementById('rtbox').innerHTML='<div class="rti">'+(d.routing==='bert'?'[B]':d.routing==='nli'?'[N]':'[E]')+'</div><div class="rtt"><strong>'+(rl[d.routing]||d.routing)+'</strong><span>'+(rd[d.routing]||'')+'</span></div><div style="font-size:11px;color:var(--muted);text-align:right">'+d.latency_ms+'ms<br>'+d.context_words+' kelime</div>';
-    document.getElementById('rg').innerHTML=bertCard(d.bert)+nliCard(d.nli)+hybridCard(d)+embeddingCard(d);
+    document.getElementById('rg').innerHTML=bertCard(d.bert)+nliCard(d.nli)+hybridCard(d);
     showNotif('Analiz tamamlandi -- '+d.latency_ms+'ms','ok');
   }catch(e){showNotif('Hata: '+e.message,'err')}
   finally{btn.disabled=false;btn.innerHTML='Analiz Et'}
@@ -869,15 +837,11 @@ async function runBatch(){
     const weightedF1Str=activePCM?(weightedF1*100).toFixed(0)+'%':'—';
     const weightedF1Col=activePCM?(weightedF1>=0.8?'#10b981':weightedF1>=0.5?'#f59e0b':'#ef4444'):'var(--muted)';
     
-    const embScores=d.results.filter(r=>r.embedding&&r.embedding.emb_max!=null).map(r=>r.embedding.emb_max);
-    const avgEmbStr=embScores.length>0?Math.round(embScores.reduce((a,b)=>a+b,0)/embScores.length*100)+'%':'—';
-    const avgEmbCol=embScores.length>0?(embScores.reduce((a,b)=>a+b,0)/embScores.length>=0.6?'#10b981':'#f59e0b'):'var(--muted)';
     const stats=[
       {val:d.count,lbl:'Toplam',col:'var(--text)'},
       {val:s.accuracy!==null?(s.accuracy*100).toFixed(0)+'%':'—',lbl:'Dogruluk',col:'#10b981'},
       {val:weightedF1Str,lbl:'Weighted F1',col:weightedF1Col},
       {val:(s.avg_hallucination_score*100).toFixed(0)+'%',lbl:'Ort. H-Score',col:'#38bdf8'},
-      {val:avgEmbStr,lbl:'Ort. Kanıt Skoru',col:avgEmbCol},
       {val:s.n_with_gold,lbl:'Gold Etiketli',col:'var(--muted)'}
     ];
     for(const st of stats) {
