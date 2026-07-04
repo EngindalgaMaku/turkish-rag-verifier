@@ -191,12 +191,31 @@ textarea{resize:vertical;min-height:55px}
       </div>
     </div>
     <!-- Confusion matrix -->
-    <div id="b-cm-wrap" style="display:none;margin-top:10px">
-      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Karisiklik Matrisi (Confusion Matrix)</div>
-      <div style="overflow-x:auto">
-        <table id="b-cm-table" style="border-collapse:collapse;font-size:11px;font-family:monospace"></table>
+    <div id="b-cm-wrap" style="display:none;margin-top:15px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:8px;padding:15px">
+      <div style="font-size:11px;font-weight:700;color:var(--hc);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;border-bottom:1px solid var(--border);padding-bottom:5px">Karışıklık Matrisi (Confusion Matrix) &amp; Analiz Rehberi</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:15px;align-items:start">
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:8px">Hata Dağılım Matrisi</div>
+          <div style="overflow-x:auto">
+            <table id="b-cm-table" style="border-collapse:collapse;font-size:11px;font-family:monospace;width:100%;max-width:320px"></table>
+          </div>
+          <div style="font-size:10px;color:var(--muted);margin-top:6px;font-style:italic">Satırlar = Gerçek Etiket (Gold) &middot; Sütunlar = Modelin Tahmini</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;padding:12px;font-size:11px;line-height:1.4">
+          <div style="font-weight:700;color:var(--hc);margin-bottom:6px">📊 Matris Nasıl Okunur?</div>
+          <ul style="margin:0;padding-left:15px;color:var(--text);display:flex;flex-direction:column;gap:5px">
+            <li><strong>Köşegen Hücreler (<span style="color:#10b981;font-weight:bold">Yeşil</span>)</strong>: Modelin <u>doğru</u> tahmin ettiği örnek sayısıdır. Sayıların yeşil köşegende toplanması yüksek başarıyı gösterir.</li>
+            <li><strong>Köşegen Dışı (<span style="color:#ef4444;font-weight:bold">Kırmızı</span>)</strong>: Modelin yaptığı <u>hatalı</u> sınıflandırmaları gösterir (örn. Gerçekte çelişen bir durumu modelin yanlışlıkla kabul etmesi).</li>
+          </ul>
+          <div style="font-weight:700;color:var(--hc);margin-top:10px;margin-bottom:6px">🔍 Sınıf Anlamları:</div>
+          <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 8px;font-size:10px;color:var(--muted)">
+            <span style="color:var(--g);font-weight:700">ACCEPT</span> <span>Bilgi doğrulanmış, destekleniyor (Supported)</span>
+            <span style="color:var(--y);font-weight:700">WARN</span> <span>Kısmen destekleniyor veya desteklenmiyor</span>
+            <span style="color:var(--r);font-weight:700">REVISE</span> <span>Metin çelişki barındırıyor (Contradicted)</span>
+            <span style="color:var(--bl);font-weight:700">INSUF</span> <span>Bağlamda cevap için bilgi yok (Insufficient)</span>
+          </div>
+        </div>
       </div>
-      <div style="font-size:10px;color:var(--muted);margin-top:4px">Satir = Gercek Etiket · Sutun = Tahmin Edilen</div>
     </div>
     <!-- Export butonlari -->
     <div id="b-export-wrap" style="display:none;margin-top:10px;display:flex;gap:7px;flex-wrap:wrap">
@@ -372,7 +391,7 @@ let mode="auto",htimer=null;
 function setMode(m){mode=m;document.querySelectorAll('.mb').forEach(b=>b.classList.remove('active'));document.getElementById('mode-'+m).classList.add('active')}
 function loadEx(k){const e=EX[k];document.getElementById('ctx').value=e.ctx;document.getElementById('ans').value=e.ans;document.getElementById('qst').value=e.qst||'';document.getElementById('gold').value=e.gold||'';showNotif('Ornek yuklendi','ok')}
 function loadBatchEx(){document.getElementById('batchIn').value=BATCH_EX.map(x=>JSON.stringify(x)).join('\n');showNotif('Batch ornegi yuklendi','ok')}
-function sw(t){document.querySelectorAll('.tab').forEach(el=>el.classList.remove('active'));document.querySelectorAll('.pg').forEach(el=>el.classList.remove('active'));document.getElementById('tab-'+t).classList.add('active');document.getElementById('pg-'+t).classList.add('active')}
+function sw(t){document.querySelectorAll('.tab').forEach(el=>el.classList.remove('active'));document.querySelectorAll('.pg').forEach(el=>el.classList.remove('active'));document.getElementById('tab-'+t).classList.add('active');document.getElementById('pg-'+t).classList.add('active');const sb=document.querySelector('.sb');if(sb){sb.style.display=(t==='about'?'none':'flex')}}
 function dc(d){return{accept:'var(--g)',warn:'var(--y)',revise:'var(--r)',insufficient_context:'var(--bl)'}[d]||'var(--muted)'}
 function de(d){return{accept:'ACCEPT',warn:'WARN',revise:'REVISE',insufficient_context:'INSUF'}[d]||d}
 function hcol(s){if(s<0.2)return'var(--g)';if(s<0.5)return'var(--y)';if(s<0.75)return'var(--o)';return'var(--r)'}
