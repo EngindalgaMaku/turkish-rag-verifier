@@ -114,100 +114,147 @@ def _nli_danger(nli: dict) -> float:
     return con * 0.75 + (1.0 - sup) * 0.25
 
 
-def fuse(bert: dict, nli: dict) -> dict:
+def has_quantifier_or_exception_mismatch(context: str, answer: str) -> bool:
     """
-    Her zaman ensemble — ağırlıklı fusion + uyuşmazlık tespiti.
+    Mantıksal kapsam, nicelik belirteçleri ve olumsuzluk / istisna uyuşmazlıklarını kontrol eder.
+    """
+    words = ["yalnızca", "sadece", "her", "tüm", "hiçbir", "bazı", "hariç", "ancak", "değil", "yapılmamıştır"]
+    c_low = context.lower()
+    a_low = answer.lower()
+    for w in words:
+        in_c = w in c_low
+        in_a = w in a_low
+        if in_c != in_a:
+            return True
+    return False
 
-    Mantık:
-      1. Ağırlıklı tehlike skoru hesapla (BERT=0.65, NLI=0.35)
-      2. İkisi aynı fikirdeyse → güvenli karar
-      3. Biri tehlike, diğeri güvenli → warn (şüpheli, uyuşmazlık)
-      4. İkisi de tehlike → revise
+
+async def fuse(client: httpx.AsyncClient, context: str, answer: str, bert: dict, nli: dict) -> dict:
     """
+    NLI-merkezli, BERT-tetiklemeli tamamlayıcı hibrit doğrulama hattı.
+    """
+    import re
     bert_label = bert.get("predicted_label", "supported")
     bert_conf  = bert.get("confidence", 0.5)
     nli_con    = nli.get("contradiction_score", 0.0)
     nli_sup    = nli.get("support_score", 0.0)
-    nli_kw     = nli.get("keyword_overlap", 0.0)
-
-    b_danger = _bert_danger(bert)
-    n_danger = _nli_danger(nli)
-    w_danger = BERT_WEIGHT * b_danger + NLI_WEIGHT * n_danger
-
-    # Uyuşmazlık var mı?
-    disagree = abs(b_danger - n_danger) >= DISAGREE_THR
-
-    # --- Özel durumlar önce ---
-
-    # Insufficient context: BERT güçlü sinyal
-    if bert_label == "insufficient_context" and bert_conf >= BERT_INSUF_THR:
-        return {
-            "decision": "insufficient_context",
-            "source": "bert",
-            "confidence": bert_conf,
-            "reason": f"BERT insufficient ({bert_conf:.2f})"
-        }
-
-    # NLI insufficient (düşük sup + düşük con + düşük kw)
-    if nli_sup < NLI_INSUF_SUP and nli_con < NLI_INSUF_CON and nli_kw < NLI_INSUF_KW:
-        return {
-            "decision": "insufficient_context",
-            "source": "nli",
-            "confidence": 1.0 - nli_sup,
-            "reason": f"NLI: sup={nli_sup:.2f}, con={nli_con:.2f}, kw={nli_kw:.2f}"
-        }
-
-    # --- Ağırlıklı karar ---
-
-    if w_danger >= 0.65:
-        # Her iki model tehlike görüyor veya BERT güçlü tehlike
-        if disagree:
-            # Biri tehlike diğeri güvenli ama ağırlıklı skor yüksek → warn
-            return {
-                "decision": "warn",
-                "source": "ensemble_disagree",
-                "confidence": w_danger,
-                "reason": f"Uyuşmazlık: BERT={b_danger:.2f}, NLI={n_danger:.2f}, ağırlıklı={w_danger:.2f}"
-            }
+    nli_dec    = nli.get("decision", "warn")
+    
+    # 1. Güçlü NLI contradiction veto
+    if nli_con >= 0.80:
         return {
             "decision": "revise",
-            "source": "ensemble",
-            "confidence": w_danger,
-            "reason": f"Her iki model tehlike: BERT={b_danger:.2f}, NLI={n_danger:.2f}"
+            "source": "nli_veto",
+            "confidence": nli_con,
+            "reason": f"Güçlü NLI çelişkisi (con={nli_con:.2f})"
         }
-
-    elif w_danger >= 0.35:
-        # Orta tehlike — warn
-        if disagree:
-            return {
-                "decision": "warn",
-                "source": "ensemble_disagree",
-                "confidence": w_danger,
-                "reason": f"Uyuşmazlık (orta): BERT={b_danger:.2f}, NLI={n_danger:.2f}"
-            }
+        
+    # 2. BERT supported tek başına kabul ettiremez
+    if nli_sup < 0.80 and bert_label == "supported":
         return {
             "decision": "warn",
-            "source": "ensemble",
-            "confidence": w_danger,
-            "reason": f"Orta tehlike: BERT={b_danger:.2f}, NLI={n_danger:.2f}"
+            "source": "bert_supported_veto",
+            "confidence": bert_conf,
+            "reason": f"BERT supported verdi ama NLI desteği yetersiz (sup={nli_sup:.2f})"
         }
-
-    else:
-        # Düşük tehlike — accept
-        if disagree:
-            # Biri tehlike görüyor ama ağırlıklı skor düşük → yine de warn
+        
+    # 3. BERT partially_supported ise claim-level NLI kontrolü tetikler
+    if bert_label == "partially_supported":
+        claims = [c.strip() for c in re.split(r'[.!?]\s+', answer) if c.strip()]
+        if len(claims) > 1:
+            tasks = []
+            for claim in claims:
+                payload = {
+                    "context": context,
+                    "answer": claim,
+                    "question": claim
+                }
+                tasks.append(call_nli(client, payload))
+            claim_results = await asyncio.gather(*tasks)
+            
+            any_contra = False
+            any_unsupp = False
+            all_supp = True
+            
+            for cr in claim_results:
+                if not cr or "error" in cr:
+                    any_unsupp = True
+                    all_supp = False
+                    continue
+                c_dec = cr.get("decision", "warn")
+                c_con = cr.get("contradiction_score", 0.0)
+                c_sup = cr.get("support_score", 0.0)
+                
+                # NLI policy_params'a göre çelişki veya desteksizlik kontrolü
+                if c_dec == "revise" or c_con >= 0.30:
+                    any_contra = True
+                    all_supp = False
+                elif c_dec in ("warn", "insufficient_context") or c_sup < 0.80:
+                    any_unsupp = True
+                    all_supp = False
+                    
+            if any_contra:
+                return {
+                    "decision": "revise",
+                    "source": "claim_level_nli",
+                    "confidence": bert_conf,
+                    "reason": "BERT partial dedi; iddia seviyesinde çelişki bulundu."
+                }
+            elif any_unsupp:
+                return {
+                    "decision": "warn",
+                    "source": "claim_level_nli",
+                    "confidence": bert_conf,
+                    "reason": "BERT partial dedi; iddia seviyesinde yetersiz destek bulundu."
+                }
+            elif all_supp:
+                return {
+                    "decision": "accept",
+                    "source": "claim_level_nli",
+                    "confidence": bert_conf,
+                    "reason": "BERT partial dedi; tüm iddialar başarıyla desteklendi."
+                }
+        else:
             return {
                 "decision": "warn",
-                "source": "ensemble_disagree",
-                "confidence": w_danger,
-                "reason": f"Uyuşmazlık (düşük skor): BERT={b_danger:.2f}, NLI={n_danger:.2f}"
+                "source": "bert_partial_fallback",
+                "confidence": bert_conf,
+                "reason": "BERT kısmi destek dedi (tek cümle)."
             }
+            
+    # 4. BERT contradicted ama NLI desteği yüksekse istisna/genelleme kontrolü
+    if bert_label == "contradicted" and nli_sup >= 0.80:
+        if has_quantifier_or_exception_mismatch(context, answer):
+            return {
+                "decision": "revise",
+                "source": "quantifier_mismatch",
+                "confidence": bert_conf,
+                "reason": "BERT çelişki bildirdi ve mantıksal kapsam/istisna uyuşmazlığı tespit edildi."
+            }
+        else:
+            return {
+                "decision": "warn",
+                "source": "bert_contradicted_fallback",
+                "confidence": bert_conf,
+                "reason": "BERT çelişki bildirdi ancak genel uyuşmazlık şüphesiyle warn verildi."
+            }
+            
+    # 5. NLI güçlü destekliyse kabul
+    if nli_sup >= 0.85 and nli_con < 0.10:
         return {
             "decision": "accept",
-            "source": "ensemble",
-            "confidence": 1.0 - w_danger,
-            "reason": f"Her iki model güvenli: BERT={b_danger:.2f}, NLI={n_danger:.2f}"
+            "source": "nli_strong_support",
+            "confidence": nli_sup,
+            "reason": f"Güçlü NLI desteği (sup={nli_sup:.2f}, con={nli_con:.2f})"
         }
+        
+    # 6. Destek zayıfsa güvenli karar
+    return {
+        "decision": "warn",
+        "source": "fallback_warn",
+        "confidence": max(nli_sup, nli_con),
+        "reason": f"Düşük/belirsiz destek: NLI sup={nli_sup:.2f}, con={nli_con:.2f}"
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -353,14 +400,20 @@ async def detect(
         reason     = f"NLI: sup={nli_sup_raw:.2f}, con={nli_con_raw:.2f}"
 
     elif bert_ok and nli_ok:
-        # Ensemble — ağırlıklı fusion + uyuşmazlık tespiti
-        fusion     = fuse(bert_result, nli_result)
+        # Ensemble — tamamlayıcı hibrit doğrulama
+        fusion     = await fuse(client, context, answer, bert_result, nli_result)
         decision   = fusion["decision"]
         confidence = fusion["confidence"]
         source     = fusion["source"]
         reason     = fusion["reason"]
+        
+        # Hallucination score hesabı ve karar uyumu
         h_score    = BERT_WEIGHT * bert_hallucination_score(bert_result) + \
                      NLI_WEIGHT  * nli_hallucination_score(nli_result)
+        if decision == "accept":
+            h_score = min(h_score, 0.15)
+        elif decision == "revise":
+            h_score = max(h_score, 0.85)
 
     elif bert_ok:
         # NLI başarısız, BERT'e fall back
