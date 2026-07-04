@@ -17,6 +17,9 @@ import httpx
 import asyncio
 import time
 from typing import Optional
+import nltk
+nltk.download('punkt', quiet=True)
+from nltk.tokenize import sent_tokenize
 
 import os
 BERT_URL = os.getenv("BERT_URL", "http://localhost:8001")
@@ -145,7 +148,7 @@ async def fuse(client: httpx.AsyncClient, context: str, answer: str, bert: dict,
         
     # 3. BERT partially_supported ise claim-level NLI kontrolü tetikler
     if bert_label == "partially_supported":
-        claims = [c.strip() for c in re.split(r'[.!?]\s+', answer) if c.strip()]
+        claims = [c.strip() for c in sent_tokenize(answer, language='turkish') if c.strip()]
         if len(claims) > 1:
             tasks = []
             for claim in claims:
@@ -211,7 +214,7 @@ async def fuse(client: httpx.AsyncClient, context: str, answer: str, bert: dict,
     if bert_label == "contradicted" and nli_sup >= 0.80:
         # Kelime eşleme gibi kırılgan yöntemler yerine semantik doğrulama yapıyoruz.
         # Eğer cevap çoklu cümleyse, iddia bazlı NLI ile çelişen kısmı tespit etmeye çalışıyoruz.
-        claims = [c.strip() for c in re.split(r'[.!?]\s+', answer) if c.strip()]
+        claims = [c.strip() for c in sent_tokenize(answer, language='turkish') if c.strip()]
         if len(claims) > 1:
             tasks = []
             for claim in claims:
