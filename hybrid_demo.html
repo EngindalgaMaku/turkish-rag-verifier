@@ -64,9 +64,9 @@ textarea{resize:vertical;min-height:55px}
 .rti{font-size:17px}.rtt{flex:1}.rtt strong{display:block;font-size:12px}.rtt span{font-size:11px;color:var(--muted)}
 .expl{background:var(--panel);border-left:3px solid var(--hc);border-radius:0 5px 5px 0;padding:6px 9px;font-size:11px;color:var(--muted);margin-top:6px}
 .empty{text-align:center;color:var(--muted);padding:40px;font-size:13px}
-.sg{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.sg{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
 .sc{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:9px;text-align:center}
-.sv{font-size:19px;font-weight:700}.sl{font-size:10px;color:var(--muted);margin-top:2px}
+.sv{font-size:19px;font-weight:700;font-family:monospace}.sl{font-size:10px;color:var(--muted);margin-top:2px}
 .bt2{width:100%;border-collapse:collapse;font-size:11px}
 .bt2 th{background:var(--panel);padding:6px 8px;text-align:left;font-size:10px;color:var(--muted);text-transform:uppercase;border-bottom:1px solid var(--border)}
 .bt2 td{padding:6px 8px;border-bottom:1px solid var(--border)}
@@ -152,8 +152,41 @@ textarea{resize:vertical;min-height:55px}
         <button class="rb" style="flex:0 0 100px;background:var(--border);color:var(--text)" onclick="loadBatchEx()">Ornek Yukle</button>
       </div>
     </div>
-    <div id="b-stats" style="display:none"><div class="sg" id="sg"></div></div>
-    <div id="b-table" style="display:none;overflow-x:auto">
+    <!-- Batch sonuc paneli -->
+    <div id="b-stats" style="display:none">
+      <div class="sg" id="sg"></div>
+      <!-- Dagilim bar -->
+      <div style="margin-top:10px">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:3px">Karar Dagilimi</div>
+        <div id="b-dist-bar" style="display:flex;height:7px;border-radius:4px;overflow:hidden;gap:2px"></div>
+        <div id="b-dist-legend" style="display:flex;flex-wrap:wrap;gap:7px;font-size:10px;color:var(--muted);margin-top:4px;font-family:monospace"></div>
+      </div>
+    </div>
+    <!-- Per-class metrikler -->
+    <div id="b-perclass-wrap" style="display:none;margin-top:10px">
+      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Sinif Bazli Metrikler (Precision / Recall / F1)</div>
+      <div style="overflow-x:auto">
+        <table class="bt2" id="b-perclass-table">
+          <thead><tr><th>Sinif</th><th>Precision</th><th>Recall</th><th>F1</th><th>Destek</th></tr></thead>
+          <tbody id="b-perclass-body"></tbody>
+        </table>
+      </div>
+    </div>
+    <!-- Confusion matrix -->
+    <div id="b-cm-wrap" style="display:none;margin-top:10px">
+      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Karisiklik Matrisi (Confusion Matrix)</div>
+      <div style="overflow-x:auto">
+        <table id="b-cm-table" style="border-collapse:collapse;font-size:11px;font-family:monospace"></table>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:4px">Satir = Gercek Etiket · Sutun = Tahmin Edilen</div>
+    </div>
+    <!-- Export butonlari -->
+    <div id="b-export-wrap" style="display:none;margin-top:10px;display:flex;gap:7px;flex-wrap:wrap">
+      <button class="rb" style="flex:0 0 auto;width:auto;padding:6px 14px;font-size:11px;background:var(--border);color:var(--text)" onclick="exportCSV()">⬇️ CSV Indir</button>
+      <button class="rb" style="flex:0 0 auto;width:auto;padding:6px 14px;font-size:11px;background:var(--border);color:var(--text)" onclick="exportJSON()">⬇️ JSON Indir</button>
+    </div>
+    <!-- Detay tablosu -->
+    <div id="b-table" style="display:none;overflow-x:auto;margin-top:10px">
       <table class="bt2">
         <thead><tr><th>#</th><th>Baglamdan</th><th>Routing</th><th>Karar</th><th>H-Score</th><th>Guven</th><th>Gold</th><th>Dogru?</th></tr></thead>
         <tbody id="btbody"></tbody>
@@ -270,30 +303,172 @@ async function runDetect(){
   finally{btn.disabled=false;btn.innerHTML='Analiz Et'}
 }
 
+// ---- Batch state ----
+let _batchItems=null, _batchData=null;
+
+const LABELS=['supported','partially_supported','unsupported','contradicted','insufficient_context'];
+const LMAP={supported:{name:'SUPPORTED',col:'#10b981'},partially_supported:{name:'PARTIAL',col:'#f59e0b'},unsupported:{name:'UNSUPPORTED',col:'#f97316'},contradicted:{name:'CONTRADICTED',col:'#ef4444'},insufficient_context:{name:'INSUFFICIENT',col:'#6366f1'}};
+
+function computePCM(results,items){
+  const hasGold=items.some(it=>!!it.gold_label);
+  if(!hasGold)return null;
+  const cm={};
+  LABELS.forEach(a=>{cm[a]={};LABELS.forEach(p=>{cm[a][p]=0;})});
+  results.forEach((r,i)=>{
+    const gold=items[i]&&items[i].gold_label;
+    if(!gold)return;
+    const pred=r.predicted_label||r.decision;
+    if(cm[gold]!==undefined){cm[gold][pred]=(cm[gold][pred]||0)+1;}
+  });
+  const metrics={};
+  LABELS.forEach(lbl=>{
+    let tp=cm[lbl][lbl]||0;
+    let fp=LABELS.reduce((s,a)=>s+(a!==lbl?(cm[a][lbl]||0):0),0);
+    let fn=LABELS.reduce((s,p)=>s+(p!==lbl?(cm[lbl][p]||0):0),0);
+    let support=LABELS.reduce((s,p)=>s+(cm[lbl][p]||0),0);
+    let prec=(tp+fp)>0?tp/(tp+fp):0;
+    let rec=(tp+fn)>0?tp/(tp+fn):0;
+    let f1=(prec+rec)>0?2*prec*rec/(prec+rec):0;
+    metrics[lbl]={prec,rec,f1,support};
+  });
+  const active=LABELS.filter(l=>metrics[l].support>0);
+  const macroF1=active.length>0?active.reduce((s,l)=>s+metrics[l].f1,0)/active.length:0;
+  return{metrics,cm,macroF1,LABELS};
+}
+
+function renderPCM(pcm){
+  const wrap=document.getElementById('b-perclass-wrap');
+  const tbody=document.getElementById('b-perclass-body');
+  if(!pcm){wrap.style.display='none';return;}
+  wrap.style.display='block';
+  tbody.innerHTML='';
+  pcm.LABELS.forEach(lbl=>{
+    const m=pcm.metrics[lbl];
+    if(m.support===0)return;
+    const info=LMAP[lbl]||{name:lbl,col:'#6366f1'};
+    const f1col=m.f1>=0.8?'#10b981':m.f1>=0.5?'#f59e0b':'#ef4444';
+    const tr=document.createElement('tr');
+    tr.innerHTML='<td><span style="color:'+info.col+';font-weight:700">'+info.name+'</span></td>'
+      +'<td style="font-family:monospace">'+(m.prec*100).toFixed(1)+'%</td>'
+      +'<td style="font-family:monospace">'+(m.rec*100).toFixed(1)+'%</td>'
+      +'<td style="font-family:monospace;color:'+f1col+';font-weight:700">'+(m.f1*100).toFixed(1)+'%</td>'
+      +'<td style="font-family:monospace">'+m.support+'</td>';
+    tbody.appendChild(tr);
+  });
+  const macroTr=document.createElement('tr');
+  macroTr.style.borderTop='2px solid var(--border)';
+  const mf1col=pcm.macroF1>=0.8?'#10b981':pcm.macroF1>=0.5?'#f59e0b':'#ef4444';
+  macroTr.innerHTML='<td style="font-weight:700">Macro Avg</td><td>—</td><td>—</td>'
+    +'<td style="font-family:monospace;color:'+mf1col+';font-weight:700">'+(pcm.macroF1*100).toFixed(1)+'%</td><td>—</td>';
+  tbody.appendChild(macroTr);
+}
+
+function renderCM(pcm){
+  const wrap=document.getElementById('b-cm-wrap');
+  const table=document.getElementById('b-cm-table');
+  if(!pcm){wrap.style.display='none';return;}
+  const active=pcm.LABELS.filter(l=>pcm.metrics[l].support>0);
+  if(active.length<2){wrap.style.display='none';return;}
+  wrap.style.display='block';
+  let maxVal=0;
+  active.forEach(a=>active.forEach(p=>{if(pcm.cm[a][p]>maxVal)maxVal=pcm.cm[a][p];}));
+  let html='<thead><tr><th style="background:#1f2937;padding:5px 8px;border:1px solid #374151;font-size:10px;color:#9ca3af">Gercek\\Tahmin</th>';
+  active.forEach(p=>{const info=LMAP[p]||{name:p,col:'#6366f1'};html+='<th style="background:#1f2937;padding:5px 7px;border:1px solid #374151;color:'+info.col+';font-size:10px;white-space:nowrap">'+info.name+'</th>';});
+  html+='</tr></thead><tbody>';
+  active.forEach(a=>{
+    const aInfo=LMAP[a]||{name:a,col:'#6366f1'};
+    html+='<tr><td style="background:#1f2937;padding:5px 8px;border:1px solid #374151;color:'+aInfo.col+';font-size:10px;font-weight:700;white-space:nowrap">'+aInfo.name+'</td>';
+    active.forEach(p=>{
+      const val=pcm.cm[a][p]||0;
+      const isDiag=a===p;
+      const intensity=maxVal>0?val/maxVal:0;
+      let bg,col;
+      if(isDiag&&val>0){bg='rgba(16,185,129,'+(0.1+intensity*0.5)+')';col='#10b981';}
+      else if(!isDiag&&val>0){bg='rgba(239,68,68,'+(0.05+intensity*0.4)+')';col='#ef4444';}
+      else{bg='#111827';col='#374151';}
+      html+='<td style="background:'+bg+';color:'+col+';padding:5px 10px;border:1px solid #374151;text-align:center;font-weight:'+(val>0?'700':'400')+'">'+val+'</td>';
+    });
+    html+='</tr>';
+  });
+  html+='</tbody>';
+  table.innerHTML=html;
+}
+
+function exportCSV(){
+  if(!_batchData||!_batchItems)return;
+  const rows=[['#','Baglamdan','Routing','Karar','H-Score','Guven','Gold','Dogru']];
+  _batchData.results.forEach((r,i)=>{
+    const it=_batchItems[i]||{};
+    rows.push([i+1,'"'+(it.context||'').slice(0,60).replace(/"/g,'""')+'"',r.routing,r.decision,(r.hallucination_score*100).toFixed(1)+'%',(r.confidence*100).toFixed(1)+'%',it.gold_label||'',r.is_correct===null?'':r.is_correct?'Evet':'Hayir']);
+  });
+  const csv=rows.map(r=>r.join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}));
+  a.download='hybrid_batch_'+Date.now()+'.csv';a.click();
+  showNotif('CSV indirildi','ok');
+}
+
+function exportJSON(){
+  if(!_batchData||!_batchItems)return;
+  const out=_batchData.results.map((r,i)=>({index:i+1,input:_batchItems[i]||{},result:r}));
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(out,null,2)],{type:'application/json'}));
+  a.download='hybrid_batch_'+Date.now()+'.json';a.click();
+  showNotif('JSON indirildi','ok');
+}
+
 async function runBatch(){
   const url=document.getElementById('apiUrl').value.trim();
   const raw=document.getElementById('batchIn').value.trim();
   if(!raw){showNotif('JSON satirlari gerekli','err');return}
   let items=[];
-  for(const line of raw.split('\n')){const t=line.trim();if(!t)continue;try{items.push(JSON.parse(t))}catch{showNotif('JSON parse hatasi: '+t.slice(0,40),'err');return}}
+  // JSON array veya JSONL destegi
+  const trimmed=raw.trim();
+  if(trimmed.startsWith('[')){
+    try{items=JSON.parse(trimmed);}catch(e){showNotif('JSON parse hatasi: '+e.message,'err');return}
+  } else {
+    for(const line of trimmed.split('\n')){const t=line.trim();if(!t)continue;try{items.push(JSON.parse(t))}catch{showNotif('JSON parse hatasi: '+t.slice(0,40),'err');return}}
+  }
   if(items.length>50){showNotif('Max 50 satir','err');return}
-  const btn=document.querySelector('#pg-batch .rb');
+  const btn=document.getElementById('batchBtn')||document.querySelector('#pg-batch .rb');
   btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Calistiriliyor...';
   try{
     const r=await fetch(url+'/batch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:items.map(x=>({context:x.context||'',answer:x.answer||'',question:x.question||'',claim:x.claim||'',gold_label:x.gold_label||'',mode:mode}))})});
     if(!r.ok)throw new Error('HTTP '+r.status);
     const d=await r.json();
+    _batchItems=items;_batchData=d;
     const s=d.summary;
-    const sg=document.getElementById('sg');
-    sg.innerHTML='';
+    // Score grid
+    const sg=document.getElementById('sg');sg.innerHTML='';
+    const pcm=computePCM(d.results,items);
+    const macroF1Str=pcm?(pcm.macroF1*100).toFixed(0)+'%':'—';
+    const macroF1Col=pcm?(pcm.macroF1>=0.8?'#10b981':pcm.macroF1>=0.5?'#f59e0b':'#ef4444'):'var(--muted)';
     const stats=[
-      {val:d.count,lbl:'Toplam'},
-      {val:s.accuracy!==null?(s.accuracy*100).toFixed(0)+'%':'—',lbl:'Dogruluk'},
-      {val:(s.avg_hallucination_score*100).toFixed(0)+'%',lbl:'Ort. H-Score'},
-      {val:s.n_with_gold,lbl:'Gold Etiketli'}
+      {val:d.count,lbl:'Toplam',col:'var(--text)'},
+      {val:s.accuracy!==null?(s.accuracy*100).toFixed(0)+'%':'—',lbl:'Dogruluk',col:'#10b981'},
+      {val:macroF1Str,lbl:'Macro F1',col:macroF1Col},
+      {val:(s.avg_hallucination_score*100).toFixed(0)+'%',lbl:'Ort. H-Score',col:'#38bdf8'},
+      {val:s.n_with_gold,lbl:'Gold Etiketli',col:'var(--muted)'}
     ];
-    for(const st of stats)sg.innerHTML+='<div class="sc"><div class="sv">'+st.val+'</div><div class="sl">'+st.lbl+'</div></div>';
+    for(const st of stats)sg.innerHTML+='<div class="sc"><div class="sv" style="color:'+st.col+'">'+st.val+'</div><div class="sl">'+st.lbl+'</div></div>';
+    // Dagilim bar
+    const bar=document.getElementById('b-dist-bar');const leg=document.getElementById('b-dist-legend');
+    bar.innerHTML='';leg.innerHTML='';
+    const decisions=d.results.map(r=>r.decision);
+    const decCounts={};decisions.forEach(dec=>{decCounts[dec]=(decCounts[dec]||0)+1;});
+    const decColors={accept:'#10b981',warn:'#f59e0b',revise:'#ef4444',insufficient_context:'#6366f1'};
+    Object.entries(decCounts).forEach(([dec,cnt])=>{
+      const pct=(cnt/d.count*100).toFixed(1);
+      const col=decColors[dec]||'#9ca3af';
+      const seg=document.createElement('div');seg.style.cssText='height:100%;border-radius:2px;background:'+col+';width:'+pct+'%;transition:width .5s';seg.title=dec+': '+cnt+' ('+pct+'%)';bar.appendChild(seg);
+      const l=document.createElement('span');l.innerHTML='<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+col+';margin-right:3px"></span>'+dec+': '+cnt+' ('+pct+'%)';leg.appendChild(l);
+    });
     document.getElementById('b-stats').style.display='block';
+    // Per-class + CM
+    renderPCM(pcm);renderCM(pcm);
+    // Export goster
+    const expWrap=document.getElementById('b-export-wrap');if(expWrap)expWrap.style.display='flex';
+    // Detay tablosu
     const tbody=document.getElementById('btbody');tbody.innerHTML='';
     d.results.forEach((res,i)=>{
       const item=items[i];
@@ -301,7 +476,7 @@ async function runBatch(){
       const cb=ok===null?'—':'<span class="cb '+(ok?'ok':'err')+'">'+(ok?'Dogru':'Yanlis')+'</span>';
       tbody.innerHTML+='<tr>'
         +'<td>'+(i+1)+'</td>'
-        +'<td>'+(item.context||'').slice(0,40)+'...</td>'
+        +'<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+(item.context||'')+'">'+(item.context||'').slice(0,40)+'...</td>'
         +'<td>'+res.routing+'</td>'
         +'<td><span style="color:'+dc(res.decision)+'">'+res.decision+'</span></td>'
         +'<td>'+(res.hallucination_score*100).toFixed(0)+'%</td>'
