@@ -656,6 +656,16 @@ function renderPCM(pcm){
   macroTr.innerHTML='<td style="font-weight:700">Macro Avg</td><td>—</td><td>—</td>'
     +'<td style="font-family:monospace;color:'+mf1col+';font-weight:700">'+(pcm.macroF1*100).toFixed(1)+'%</td><td>—</td>';
   tbody.appendChild(macroTr);
+
+  // Ağırlıklı Ortalama (Weighted Avg) hesapla ve ekle
+  let totalSup=pcm.LABELS.reduce((s,l)=>s+(pcm.metrics[l].support||0),0);
+  let wSum=pcm.LABELS.reduce((s,l)=>s+((pcm.metrics[l].f1||0)*(pcm.metrics[l].support||0)),0);
+  let weightedF1=totalSup>0?wSum/totalSup:0;
+  const weightedTr=document.createElement('tr');
+  const wf1col=weightedF1>=0.8?'#10b981':weightedF1>=0.5?'#f59e0b':'#ef4444';
+  weightedTr.innerHTML='<td style="font-weight:700">Weighted Avg</td><td>—</td><td>—</td>'
+    +'<td style="font-family:monospace;color:'+wf1col+';font-weight:700">'+(weightedF1*100).toFixed(1)+'%</td><td>—</td>';
+  tbody.appendChild(weightedTr);
 }
 
 function renderCM(pcm){
