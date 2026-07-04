@@ -111,9 +111,9 @@ textarea{resize:vertical;min-height:55px}
   <div>
     <div class="st">Mod</div>
     <div class="mg">
-      <button class="mb active" onclick="setMode('auto')" id="mode-auto">Auto</button>
+      <button class="mb" onclick="setMode('auto')" id="mode-auto">Auto</button>
       <button class="mb" onclick="setMode('bert')" id="mode-bert">BERT</button>
-      <button class="mb" onclick="setMode('nli')" id="mode-nli">NLI</button>
+      <button class="mb active" onclick="setMode('nli')" id="mode-nli">NLI</button>
       <button class="mb" onclick="setMode('ensemble')" id="mode-ensemble">Ensemble</button>
     </div>
   </div>
@@ -466,7 +466,7 @@ const BATCH_MEDICAL = [
   {"context":"Hasta baş ağrısı nedeniyle başvurmuştur. Muayenede nörolojik defisit saptanmamış, ancak ağrının tekrarlaması halinde yeniden değerlendirme önerilmiştir.","answer":"Hastanın baş ağrısı vardır ve nörolojik muayenede belirgin bir sorun saptanmamıştır; ayrıca ağrı tekrarlarsa tekrar değerlendirme önerilmiştir.","gold_label":"supported"}
 ];
 
-let mode="auto",htimer=null;
+let mode="nli",htimer=null;
 function setMode(m){mode=m;document.querySelectorAll('.mb').forEach(b=>b.classList.remove('active'));document.getElementById('mode-'+m).classList.add('active')}
 function loadBatchEx(type){
   const dataset = type === 'medical' ? BATCH_MEDICAL : BATCH_COMPUTER;
