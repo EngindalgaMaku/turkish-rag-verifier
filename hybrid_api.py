@@ -18,10 +18,13 @@ from __future__ import annotations
 
 import time
 import asyncio
+from pathlib import Path
 from typing import Optional, List
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from hybrid_detector import detect, route, BERT_URL, NLI_URL
@@ -44,6 +47,34 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ---------------------------------------------------------------------------
+# Statik dosyalar — HTML demo arayuzleri
+# ---------------------------------------------------------------------------
+
+_HERE = Path(__file__).parent
+
+# HTML dosyalari ayni klasordeyse mount et
+if (_HERE / "hybrid_demo.html").exists():
+    @app.get("/", include_in_schema=False)
+    async def root():
+        return FileResponse(_HERE / "hybrid_demo.html")
+
+    @app.get("/demo", include_in_schema=False)
+    async def demo():
+        return FileResponse(_HERE / "hybrid_demo.html")
+
+    @app.get("/bert-demo", include_in_schema=False)
+    async def bert_demo():
+        if (_HERE / "bert_demo.html").exists():
+            return FileResponse(_HERE / "bert_demo.html")
+        return RedirectResponse("/demo")
+
+    @app.get("/nli-demo", include_in_schema=False)
+    async def nli_demo():
+        if (_HERE / "nli_demo.html").exists():
+            return FileResponse(_HERE / "nli_demo.html")
+        return RedirectResponse("/demo")
 
 # ---------------------------------------------------------------------------
 # Schemas
