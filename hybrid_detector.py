@@ -20,8 +20,9 @@ import asyncio
 import time
 from typing import Optional
 
-BERT_URL = "http://localhost:8001"
-NLI_URL  = "http://localhost:8002"
+import os
+BERT_URL = os.getenv("BERT_URL", "http://localhost:8001")
+NLI_URL  = os.getenv("NLI_URL",  "http://localhost:8002")
 
 # Routing eşikleri
 ROUTE_NLI_MAX   = 30   # < 30 kelime → NLI
