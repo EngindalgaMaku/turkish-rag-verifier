@@ -114,21 +114,6 @@ def _nli_danger(nli: dict) -> float:
     return con * 0.75 + (1.0 - sup) * 0.25
 
 
-def has_quantifier_or_exception_mismatch(context: str, answer: str) -> bool:
-    """
-    Mantıksal kapsam, nicelik belirteçleri ve olumsuzluk / istisna uyuşmazlıklarını kontrol eder.
-    """
-    words = ["yalnızca", "sadece", "her", "tüm", "hiçbir", "bazı", "hariç", "ancak", "değil", "yapılmamıştır"]
-    c_low = context.lower()
-    a_low = answer.lower()
-    for w in words:
-        in_c = w in c_low
-        in_a = w in a_low
-        if in_c != in_a:
-            return True
-    return False
-
-
 async def fuse(client: httpx.AsyncClient, context: str, answer: str, bert: dict, nli: dict) -> dict:
     """
     NLI-merkezli, BERT-tetiklemeli tamamlayıcı hibrit doğrulama hattı.
@@ -222,22 +207,45 @@ async def fuse(client: httpx.AsyncClient, context: str, answer: str, bert: dict,
                 "reason": "BERT kısmi destek dedi (tek cümle)."
             }
             
-    # 4. BERT contradicted ama NLI desteği yüksekse istisna/genelleme kontrolü
+    # 4. BERT contradicted ama NLI desteği yüksekse (Çelişki Uyuşmazlığı)
     if bert_label == "contradicted" and nli_sup >= 0.80:
-        if has_quantifier_or_exception_mismatch(context, answer):
-            return {
-                "decision": "revise",
-                "source": "quantifier_mismatch",
-                "confidence": bert_conf,
-                "reason": "BERT çelişki bildirdi ve mantıksal kapsam/istisna uyuşmazlığı tespit edildi."
-            }
-        else:
-            return {
-                "decision": "warn",
-                "source": "bert_contradicted_fallback",
-                "confidence": bert_conf,
-                "reason": "BERT çelişki bildirdi ancak genel uyuşmazlık şüphesiyle warn verildi."
-            }
+        # Kelime eşleme gibi kırılgan yöntemler yerine semantik doğrulama yapıyoruz.
+        # Eğer cevap çoklu cümleyse, iddia bazlı NLI ile çelişen kısmı tespit etmeye çalışıyoruz.
+        claims = [c.strip() for c in re.split(r'[.!?]\s+', answer) if c.strip()]
+        if len(claims) > 1:
+            tasks = []
+            for claim in claims:
+                payload = {
+                    "context": context,
+                    "answer": claim,
+                    "question": claim
+                }
+                tasks.append(call_nli(client, payload))
+            claim_results = await asyncio.gather(*tasks)
+            
+            any_contra = False
+            for cr in claim_results:
+                if cr and "error" not in cr:
+                    c_dec = cr.get("decision", "warn")
+                    c_con = cr.get("contradiction_score", 0.0)
+                    if c_dec == "revise" or c_con >= 0.30:
+                        any_contra = True
+            if any_contra:
+                return {
+                    "decision": "revise",
+                    "source": "conflict_claim_level_nli",
+                    "confidence": bert_conf,
+                    "reason": "BERT çelişki bildirdi; iddia seviyesinde çelişen alt cümle doğrulandı."
+                }
+                
+        # Eğer tek cümle ise ya da alt cümlelerde kesin çelişki bulunamadıysa, 
+        # iki modelin çatışmasını güvenli liman olan 'warn' ile çözüyoruz.
+        return {
+            "decision": "warn",
+            "source": "conflict_safe_warn",
+            "confidence": max(bert_conf, nli_sup),
+            "reason": f"Uyuşmazlık: BERT çelişki ({bert_conf:.2f}) derken NLI destek ({nli_sup:.2f}) bildirdi. Güvenli karar: WARN"
+        }
             
     # 5. NLI güçlü destekliyse kabul
     if nli_sup >= 0.85 and nli_con < 0.10:
