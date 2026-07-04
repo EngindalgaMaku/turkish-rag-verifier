@@ -261,7 +261,17 @@ async def score(req: ScoreRequest):
 
         is_correct = None
         if req.gold_label:
-            is_correct = decision == req.gold_label.lower().strip()
+            gold_accepted = {
+                "supported":             {"accept"},
+                "partially_supported":   {"warn", "revise"},
+                "unsupported":           {"warn", "revise", "insufficient_context"},
+                "contradicted":          {"revise"},
+                "insufficient_context":  {"insufficient_context"},
+                "accept":                {"accept"},
+                "warn":                  {"warn"},
+                "revise":                {"revise"},
+            }.get(req.gold_label.lower().strip())
+            is_correct = (decision in gold_accepted) if gold_accepted else False
 
         return JSONResponse(content={
             "support_score": nli["support_score"],
@@ -301,7 +311,17 @@ async def score_batch(req: BatchScoreRequest):
 
             is_correct = None
             if item.gold_label:
-                is_correct = decision == item.gold_label.lower().strip()
+                gold_accepted = {
+                    "supported":             {"accept"},
+                    "partially_supported":   {"warn", "revise"},
+                    "unsupported":           {"warn", "revise", "insufficient_context"},
+                    "contradicted":          {"revise"},
+                    "insufficient_context":  {"insufficient_context"},
+                    "accept":                {"accept"},
+                    "warn":                  {"warn"},
+                    "revise":                {"revise"},
+                }.get(item.gold_label.lower().strip())
+                is_correct = (decision in gold_accepted) if gold_accepted else False
                 n_with_gold += 1
                 if is_correct:
                     n_correct += 1
