@@ -389,18 +389,20 @@ async def detect(
     # is_correct
     is_correct = None
     if gold_label:
-        # Karışıklık Matrisi (Confusion Matrix) ve sınıf bazlı metriklerle %100 uyum için 1-e-1 eşleme (Strict Evaluation)
-        gold_mapped = {
-            "supported":             "accept",
-            "accept":                "accept",
-            "partially_supported":   "warn",
-            "unsupported":           "warn",
-            "warn":                  "warn",
-            "contradicted":          "revise",
-            "revise":                "revise",
-            "insufficient_context":  "insufficient_context",
+        # gold_label → kabul edilebilir hibrit karar seti (Esnek/Soft Değerlendirme)
+        # partially_supported: hem warn hem revise kabul (sinir etiket)
+        # unsupported: insufficient_context da kabul (baglamda konu hic yoksa her ikisi mantikli)
+        gold_accepted = {
+            "supported":             {"accept"},
+            "partially_supported":   {"warn", "revise"},
+            "unsupported":           {"warn", "revise", "insufficient_context"},
+            "contradicted":          {"revise"},
+            "insufficient_context":  {"insufficient_context"},
+            "accept":                {"accept"},
+            "warn":                  {"warn"},
+            "revise":                {"revise"},
         }.get(gold_label.lower().strip())
-        is_correct = (decision == gold_mapped) if gold_mapped else None
+        is_correct = (decision in gold_accepted) if gold_accepted else None
 
     latency_ms = round((time.time() - t0) * 1000, 1)
 

@@ -192,7 +192,11 @@ textarea{resize:vertical;min-height:55px}
     </div>
     <!-- Confusion matrix -->
     <div id="b-cm-wrap" style="display:none;margin-top:15px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:8px;padding:15px">
-      <div style="font-size:11px;font-weight:700;color:var(--hc);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;border-bottom:1px solid var(--border);padding-bottom:5px">Karışıklık Matrisi (Confusion Matrix) &amp; Analiz Rehberi</div>
+      <div style="font-size:11px;font-weight:700;color:var(--hc);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Karışıklık Matrisi (Confusion Matrix) &amp; Analiz Rehberi</div>
+      <div style="display:flex;gap:7px;margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:8px">
+        <button class="mb active" id="btn-cm-strict" onclick="toggleCM('strict')" style="padding:4px 12px;font-size:10px;border-radius:4px;border:1px solid var(--border);cursor:pointer;flex:0 0 auto;width:auto">Katı (Strict) Matris</button>
+        <button class="mb" id="btn-cm-soft" onclick="toggleCM('soft')" style="padding:4px 12px;font-size:10px;border-radius:4px;border:1px solid var(--border);cursor:pointer;flex:0 0 auto;width:auto">Esnek (Soft) Matris</button>
+      </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:15px;align-items:start">
         <div>
           <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:8px">Hata Dağılım Matrisi</div>
@@ -479,13 +483,12 @@ async function runDetect(){
 
 // ---- Batch state ----
 let _batchItems=null, _batchData=null;
+let _pcmStrict=null, _pcmSoft=null, _activeCMMode="strict";
 
 const LABELS=['accept','warn','revise','insufficient_context'];
 const LMAP={accept:{name:'ACCEPT',col:'#10b981'},warn:{name:'WARN',col:'#f59e0b'},revise:{name:'REVISE',col:'#ef4444'},insufficient_context:{name:'INSUFFICIENT',col:'#6366f1'}};
 
-function computePCM(results,items){
-  const hasGold=items.some(it=>!!it.gold_label);
-  if(!hasGold)return null;
+function computeSinglePCM(results,items,isSoft){
   const cm={};
   LABELS.forEach(a=>{cm[a]={};LABELS.forEach(p=>{cm[a][p]=0;})});
   const goldToHybrid={
@@ -498,13 +501,33 @@ function computePCM(results,items){
     'revise':'revise',
     'insufficient_context':'insufficient_context'
   };
+  const softAccepted={
+    "supported":["accept"],
+    "accept":["accept"],
+    "partially_supported":["warn","revise"],
+    "unsupported":["warn","revise","insufficient_context"],
+    "warn":["warn","revise"],
+    "contradicted":["revise"],
+    "revise":["revise"],
+    "insufficient_context":["insufficient_context"]
+  };
   results.forEach((r,i)=>{
-    const rawGold=items[i]&&items[i].gold_label;
+    const it=items[i]||{};
+    const rawGold=it.gold_label||it.gold_decision||it.label||"";
     if(!rawGold)return;
     const gold=goldToHybrid[rawGold];
-    const pred=r.predicted_label||r.decision;
-    if(cm[gold]!==undefined && cm[gold][pred]!==undefined){
-      cm[gold][pred]++;
+    const pred=r.decision||r.predicted_label;
+    if(isSoft){
+      const accepted=softAccepted[rawGold]||[];
+      if(accepted.includes(pred)){
+        if(cm[gold]) cm[gold][gold]++;
+      }else{
+        if(cm[gold] && cm[gold][pred]!==undefined) cm[gold][pred]++;
+      }
+    }else{
+      if(cm[gold]!==undefined && cm[gold][pred]!==undefined){
+        cm[gold][pred]++;
+      }
     }
   });
   const metrics={};
@@ -521,6 +544,32 @@ function computePCM(results,items){
   const active=LABELS.filter(l=>metrics[l].support>0);
   const macroF1=active.length>0?active.reduce((s,l)=>s+metrics[l].f1,0)/active.length:0;
   return{metrics,cm,macroF1,LABELS};
+}
+
+function computePCM(results,items){
+  const hasGold=items.some(it=>!!(it.gold_label||it.gold_decision||it.label));
+  if(!hasGold)return null;
+  return{
+    strict:computeSinglePCM(results,items,false),
+    soft:computeSinglePCM(results,items,true)
+  };
+}
+
+function toggleCM(mode){
+  _activeCMMode=mode;
+  document.getElementById('btn-cm-strict').classList.toggle('active',mode==='strict');
+  document.getElementById('btn-cm-soft').classList.toggle('active',mode==='soft');
+  const pcm=mode==='strict'?_pcmStrict:_pcmSoft;
+  if(pcm){
+    renderCM(pcm);
+    renderPCM(pcm);
+    const macroF1Card=document.getElementById('stat-macro-f1');
+    if(macroF1Card){
+      macroF1Card.innerHTML=(pcm.macroF1*100).toFixed(0)+'%';
+      const mf1col=pcm.macroF1>=0.8?'#10b981':pcm.macroF1>=0.5?'#f59e0b':'#ef4444';
+      macroF1Card.style.color=mf1col;
+    }
+  }
 }
 
 function renderPCM(pcm){
@@ -628,8 +677,14 @@ async function runBatch(){
     // Score grid
     const sg=document.getElementById('sg');sg.innerHTML='';
     const pcm=computePCM(d.results,items);
-    const macroF1Str=pcm?(pcm.macroF1*100).toFixed(0)+'%':'—';
-    const macroF1Col=pcm?(pcm.macroF1>=0.8?'#10b981':pcm.macroF1>=0.5?'#f59e0b':'#ef4444'):'var(--muted)';
+    _pcmStrict = pcm ? pcm.strict : null;
+    _pcmSoft = pcm ? pcm.soft : null;
+    _activeCMMode = "strict";
+    
+    const activePCM = _pcmStrict;
+    const macroF1Str=activePCM?(activePCM.macroF1*100).toFixed(0)+'%':'—';
+    const macroF1Col=activePCM?(activePCM.macroF1>=0.8?'#10b981':activePCM.macroF1>=0.5?'#f59e0b':'#ef4444'):'var(--muted)';
+    
     const stats=[
       {val:d.count,lbl:'Toplam',col:'var(--text)'},
       {val:s.accuracy!==null?(s.accuracy*100).toFixed(0)+'%':'—',lbl:'Dogruluk',col:'#10b981'},
@@ -637,7 +692,16 @@ async function runBatch(){
       {val:(s.avg_hallucination_score*100).toFixed(0)+'%',lbl:'Ort. H-Score',col:'#38bdf8'},
       {val:s.n_with_gold,lbl:'Gold Etiketli',col:'var(--muted)'}
     ];
-    for(const st of stats)sg.innerHTML+='<div class="sc"><div class="sv" style="color:'+st.col+'">'+st.val+'</div><div class="sl">'+st.lbl+'</div></div>';
+    for(const st of stats) {
+      const idAttr = st.lbl === 'Macro F1' ? ' id="stat-macro-f1"' : '';
+      sg.innerHTML+='<div class="sc"><div class="sv" style="color:'+st.col+'"'+idAttr+'>'+st.val+'</div><div class="sl">'+st.lbl+'</div></div>';
+    }
+    
+    const btnStrict = document.getElementById('btn-cm-strict');
+    const btnSoft = document.getElementById('btn-cm-soft');
+    if(btnStrict) btnStrict.className = "mb active";
+    if(btnSoft) btnSoft.className = "mb";
+
     // Dagilim bar
     const bar=document.getElementById('b-dist-bar');const leg=document.getElementById('b-dist-legend');
     bar.innerHTML='';leg.innerHTML='';
@@ -651,8 +715,8 @@ async function runBatch(){
       const l=document.createElement('span');l.innerHTML='<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+col+';margin-right:3px"></span>'+dec+': '+cnt+' ('+pct+'%)';leg.appendChild(l);
     });
     document.getElementById('b-stats').style.display='block';
-    // Per-class + CM
-    renderPCM(pcm);renderCM(pcm);
+    // Per-class + CM (Katı varsayılan)
+    renderPCM(_pcmStrict);renderCM(_pcmStrict);
     // Export goster
     const expWrap=document.getElementById('b-export-wrap');if(expWrap)expWrap.style.display='flex';
     // Detay tablosu
