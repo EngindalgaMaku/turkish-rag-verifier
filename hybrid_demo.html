@@ -279,9 +279,9 @@ textarea{resize:vertical;min-height:55px}
         </thead>
         <tbody>
           <tr>
-            <td><strong>Genel Türkçe NLI Modelleri</strong><br><small>(Örn: aniltepe/bert-turkce-nli)</small></td>
-            <td>Genel cümle benzerliği ve temel mantıksal çıkarımlar için eğitilmişlerdir. Büyük Dil Modellerinin (LLM) iddia düzeyindeki ince halüsinasyon örüntülerini yakalayamazlar.</td>
-            <td><strong>Alana Özgü Entegrasyon:</strong> Genel mantıksal çıkarım yeteneğini, denetimli olarak ince ayar yapılmış BERT sınıflandırıcısı ile birleştirerek hibrit bir süzgeç oluştururuz.</td>
+            <td><strong>Turk-LettuceDetect</strong><br><small>(newmindai/ModernBERT-tr-uncased-stsb-HD)</small></td>
+            <td>Token-level (kelime/token seviyesinde) çalışır. Hangi kelimenin halüsinasyon olduğunu etiketlese de, hatanın <strong>yapısını</strong> (çelişki mi, yetersiz bilgi mi, kısmi destek mi) sınıflandıramaz, karar politikası sunamaz ve açıklanabilirliği düşüktür.</td>
+            <td><strong>Claim-level (İddia Seviyesinde) ve Hibrit Karar:</strong> Metni bağımsız mantıksal iddialara ayırırız. Her iddia için 4-sınıflı (ACCEPT, WARN, REVISE, INSUF) tanı koyar, detaylı açıklama ve eylem kararı üretiriz.</td>
           </tr>
           <tr>
             <td><strong>Büyük Dil Modeli API'leri</strong><br><small>(Örn: GPT-4o, Claude 3.5)</small></td>
