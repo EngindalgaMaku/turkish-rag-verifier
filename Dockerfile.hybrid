@@ -34,7 +34,7 @@ WORKDIR /app
 # Once requirements (layer cache icin)
 COPY requirements-hybrid.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
-RUN python -m nltk.downloader punkt
+RUN python -m nltk.downloader punkt punkt_tab
 RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')"
 
 # Uygulama kodlari
