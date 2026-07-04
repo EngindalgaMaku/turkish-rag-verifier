@@ -1,15 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-hybrid_detector.py — EXP-048 Hibrit Hallucination Detection Pipeline
+hybrid_detector.py — EXP-048b Hibrit Hallucination Detection Pipeline
 
-İki modeli birleştirir:
-  - BERT (berturk_exp020, port 8001): Fine-tuned, uzun RAG bağlamları için
-  - NLI  (mDeBERTa, port 8002):       Zero-shot, kısa/genel bağlamlar için
-
-Routing:
-  ctx_words < 30  → NLI only
-  ctx_words 30-80 → Ensemble (her ikisi)
-  ctx_words > 80  → BERT only
+Her zaman hem BERT hem NLI paralel çalışır.
+Fusion mantığı:
+  - İkisi aynı fikirdeyse → güvenli karar (yüksek confidence)
+  - Biri tehlike işareti veriyorsa → warn (şüpheli)
+  - İkisi de tehlike işareti veriyorsa → revise (hallucination)
+  - Ağırlıklandırma: BERT=0.65, NLI=0.35
 
 Kullanım:
   python hybrid_detector.py  # test modu
@@ -24,20 +22,22 @@ import os
 BERT_URL = os.getenv("BERT_URL", "http://localhost:8001")
 NLI_URL  = os.getenv("NLI_URL",  "http://localhost:8002")
 
-# Routing eşikleri
-ROUTE_NLI_MAX   = 30   # < 30 kelime → NLI
-ROUTE_BERT_MIN  = 80   # > 80 kelime → BERT
-# 30-80 arası → ensemble
+# Ağırlıklar — BERT fine-tuned olduğu için daha güvenilir
+BERT_WEIGHT = 0.65
+NLI_WEIGHT  = 0.35
 
 # Fusion eşikleri
-BERT_CONTRA_THR = 0.85   # BERT contradiction confidence
-NLI_CONTRA_THR  = 0.65   # NLI contradiction score
-BERT_INSUF_THR  = 0.80   # BERT insufficient confidence
+BERT_CONTRA_THR = 0.70   # BERT contradiction confidence
+NLI_CONTRA_THR  = 0.55   # NLI contradiction score
+BERT_INSUF_THR  = 0.75   # BERT insufficient confidence
 NLI_INSUF_SUP   = 0.10   # NLI support < bu → insuf adayı
 NLI_INSUF_CON   = 0.20   # NLI contradiction < bu → insuf adayı
 NLI_INSUF_KW    = 0.05   # NLI keyword_overlap < bu → insuf adayı
-BERT_SUP_THR    = 0.80   # BERT supported confidence
-NLI_SUP_THR     = 0.65   # NLI support score
+BERT_SUP_THR    = 0.75   # BERT supported confidence
+NLI_SUP_THR     = 0.60   # NLI support score
+
+# Uyuşmazlık eşiği — ikisi farklı fikirdeyse warn
+DISAGREE_THR = 0.40   # hallucination score farkı bu kadarsa → warn
 
 
 # ---------------------------------------------------------------------------
@@ -62,22 +62,19 @@ BERT_HALLUCINATION_WEIGHT = {
 
 
 # ---------------------------------------------------------------------------
-# Routing
+# Routing — her zaman ensemble (auto modda)
 # ---------------------------------------------------------------------------
 
 def route(context: str, mode: str = "auto") -> str:
     """
-    mode: "auto" | "bert" | "nli" | "ensemble"
+    mode: "auto" → her zaman ensemble (hem BERT hem NLI paralel)
+          "bert"  → sadece BERT
+          "nli"   → sadece NLI
+          "ensemble" → her ikisi
     """
     if mode != "auto":
         return mode
-    words = len(context.split())
-    if words < ROUTE_NLI_MAX:
-        return "nli"
-    elif words > ROUTE_BERT_MIN:
-        return "bert"
-    else:
-        return "ensemble"
+    return "ensemble"  # her zaman ikisi birlikte
 
 
 # ---------------------------------------------------------------------------
@@ -97,12 +94,32 @@ def nli_hallucination_score(nli: dict) -> float:
 
 
 # ---------------------------------------------------------------------------
-# Fusion
+# Fusion — ağırlıklı + uyuşmazlık tespiti
 # ---------------------------------------------------------------------------
+
+def _bert_danger(bert: dict) -> float:
+    """BERT'in tehlike skoru: 0=güvenli, 1=tehlikeli"""
+    label = bert.get("predicted_label", "supported")
+    conf  = bert.get("confidence", 0.5)
+    return BERT_HALLUCINATION_WEIGHT.get(label, 0.5) * conf
+
+
+def _nli_danger(nli: dict) -> float:
+    """NLI'nin tehlike skoru: 0=güvenli, 1=tehlikeli"""
+    con = nli.get("contradiction_score", 0.0)
+    sup = nli.get("support_score", 0.0)
+    return con * 0.75 + (1.0 - sup) * 0.25
+
 
 def fuse(bert: dict, nli: dict) -> dict:
     """
-    Her iki model sonucunu birleştir → tek karar.
+    Her zaman ensemble — ağırlıklı fusion + uyuşmazlık tespiti.
+
+    Mantık:
+      1. Ağırlıklı tehlike skoru hesapla (BERT=0.65, NLI=0.35)
+      2. İkisi aynı fikirdeyse → güvenli karar
+      3. Biri tehlike, diğeri güvenli → warn (şüpheli, uyuşmazlık)
+      4. İkisi de tehlike → revise
     """
     bert_label = bert.get("predicted_label", "supported")
     bert_conf  = bert.get("confidence", 0.5)
@@ -110,25 +127,16 @@ def fuse(bert: dict, nli: dict) -> dict:
     nli_sup    = nli.get("support_score", 0.0)
     nli_kw     = nli.get("keyword_overlap", 0.0)
 
-    # 1. BERT güçlü contradiction sinyali
-    if bert_label == "contradicted" and bert_conf >= BERT_CONTRA_THR:
-        return {
-            "decision": "revise",
-            "source": "bert",
-            "confidence": bert_conf,
-            "reason": f"BERT contradicted ({bert_conf:.2f})"
-        }
+    b_danger = _bert_danger(bert)
+    n_danger = _nli_danger(nli)
+    w_danger = BERT_WEIGHT * b_danger + NLI_WEIGHT * n_danger
 
-    # 2. NLI güçlü contradiction sinyali
-    if nli_con >= NLI_CONTRA_THR:
-        return {
-            "decision": "revise",
-            "source": "nli",
-            "confidence": nli_con,
-            "reason": f"NLI contradiction_score={nli_con:.2f}"
-        }
+    # Uyuşmazlık var mı?
+    disagree = abs(b_danger - n_danger) >= DISAGREE_THR
 
-    # 3. BERT insufficient
+    # --- Özel durumlar önce ---
+
+    # Insufficient context: BERT güçlü sinyal
     if bert_label == "insufficient_context" and bert_conf >= BERT_INSUF_THR:
         return {
             "decision": "insufficient_context",
@@ -137,7 +145,7 @@ def fuse(bert: dict, nli: dict) -> dict:
             "reason": f"BERT insufficient ({bert_conf:.2f})"
         }
 
-    # 4. NLI insufficient (düşük sup + düşük con + düşük kw)
+    # NLI insufficient (düşük sup + düşük con + düşük kw)
     if nli_sup < NLI_INSUF_SUP and nli_con < NLI_INSUF_CON and nli_kw < NLI_INSUF_KW:
         return {
             "decision": "insufficient_context",
@@ -146,51 +154,57 @@ def fuse(bert: dict, nli: dict) -> dict:
             "reason": f"NLI: sup={nli_sup:.2f}, con={nli_con:.2f}, kw={nli_kw:.2f}"
         }
 
-    # 5. Her iki model supported → accept
-    if bert_label == "supported" and bert_conf >= BERT_SUP_THR and nli_sup >= NLI_SUP_THR:
-        conf = (bert_conf + nli_sup) / 2
+    # --- Ağırlıklı karar ---
+
+    if w_danger >= 0.65:
+        # Her iki model tehlike görüyor veya BERT güçlü tehlike
+        if disagree:
+            # Biri tehlike diğeri güvenli ama ağırlıklı skor yüksek → warn
+            return {
+                "decision": "warn",
+                "source": "ensemble_disagree",
+                "confidence": w_danger,
+                "reason": f"Uyuşmazlık: BERT={b_danger:.2f}, NLI={n_danger:.2f}, ağırlıklı={w_danger:.2f}"
+            }
         return {
-            "decision": "accept",
+            "decision": "revise",
             "source": "ensemble",
-            "confidence": conf,
-            "reason": f"BERT supported ({bert_conf:.2f}) + NLI sup={nli_sup:.2f}"
+            "confidence": w_danger,
+            "reason": f"Her iki model tehlike: BERT={b_danger:.2f}, NLI={n_danger:.2f}"
         }
 
-    # 6. BERT partially_supported veya unsupported → warn
-    # Ama NLI guclu accept sinyali veriyorsa NLI'ye guvenir (BERT yanilabilir)
-    if bert_label in ("partially_supported", "unsupported"):
-        if bert_label == "unsupported" and nli_sup >= 0.70 and nli_con < 0.10:
-            # NLI cok guclu destekliyor, BERT'i gec
+    elif w_danger >= 0.35:
+        # Orta tehlike — warn
+        if disagree:
             return {
-                "decision": "accept",
-                "source": "nli_override",
-                "confidence": nli_sup,
-                "reason": f"BERT unsupported ama NLI sup={nli_sup:.2f} >= 0.70, NLI kazandi"
+                "decision": "warn",
+                "source": "ensemble_disagree",
+                "confidence": w_danger,
+                "reason": f"Uyuşmazlık (orta): BERT={b_danger:.2f}, NLI={n_danger:.2f}"
             }
         return {
             "decision": "warn",
-            "source": "bert",
-            "confidence": bert_conf,
-            "reason": f"BERT {bert_label} ({bert_conf:.2f})"
+            "source": "ensemble",
+            "confidence": w_danger,
+            "reason": f"Orta tehlike: BERT={b_danger:.2f}, NLI={n_danger:.2f}"
         }
 
-    # 7. NLI warn sinyali
-    nli_dec = nli.get("decision", "warn")
-    if nli_dec == "warn":
+    else:
+        # Düşük tehlike — accept
+        if disagree:
+            # Biri tehlike görüyor ama ağırlıklı skor düşük → yine de warn
+            return {
+                "decision": "warn",
+                "source": "ensemble_disagree",
+                "confidence": w_danger,
+                "reason": f"Uyuşmazlık (düşük skor): BERT={b_danger:.2f}, NLI={n_danger:.2f}"
+            }
         return {
-            "decision": "warn",
-            "source": "nli",
-            "confidence": nli_sup,
-            "reason": f"NLI warn: sup={nli_sup:.2f}"
+            "decision": "accept",
+            "source": "ensemble",
+            "confidence": 1.0 - w_danger,
+            "reason": f"Her iki model güvenli: BERT={b_danger:.2f}, NLI={n_danger:.2f}"
         }
-
-    # 8. Fallback — muhafazakar
-    return {
-        "decision": "warn",
-        "source": "ensemble_fallback",
-        "confidence": 0.5,
-        "reason": "Modeller arasında çelişki, muhafazakar karar"
-    }
 
 
 # ---------------------------------------------------------------------------
@@ -314,9 +328,10 @@ async def detect(
     bert_ok = bert_result and "error" not in bert_result
     nli_ok  = nli_result  and "error" not in nli_result
 
-    # Karar
+    # Karar — her zaman ensemble fusion
     if routing == "bert" and bert_ok:
-        label = bert_result["predicted_label"]
+        # Manuel bert modu
+        label      = bert_result["predicted_label"]
         decision   = BERT_TO_HYBRID.get(label, "warn")
         confidence = bert_result["confidence"]
         h_score    = bert_hallucination_score(bert_result)
@@ -324,43 +339,25 @@ async def detect(
         reason     = f"BERT: {label} ({confidence:.2f})"
 
     elif routing == "nli" and nli_ok:
+        # Manuel nli modu
         nli_dec_raw = nli_result["decision"]
         nli_con_raw = nli_result.get("contradiction_score", 0.0)
         nli_sup_raw = nli_result.get("support_score", 0.0)
-        nli_kw_raw  = nli_result.get("keyword_overlap", 0.0)
-
-        # warn + con >= 0.06 → revise (zayif contradiction sinyali yakalamak icin)
-        if nli_dec_raw == "warn" and nli_con_raw >= 0.06 and nli_sup_raw < 0.20:
-            decision = "revise"
-            source   = "nli_upgraded"
-            reason   = f"NLI warn->revise: con={nli_con_raw:.2f} >= 0.06"
-        # warn + sup >= 0.50 → accept (NLI destekliyor ama esigin altinda)
-        # con < 0.20 esigi: zayif contradiction sinyali gormezden gel
-        elif nli_dec_raw == "warn" and nli_sup_raw >= 0.50 and nli_con_raw < 0.20:
-            decision = "accept"
-            source   = "nli_upgraded"
-            reason   = f"NLI warn->accept: sup={nli_sup_raw:.2f} >= 0.50, con={nli_con_raw:.2f} < 0.20"
-        # warn + kw >= 0.30 + con < 0.05 → accept
-        # Keyword overlap yuksekse baglamda ayni kelimeler var, destekleniyor
-        elif nli_dec_raw == "warn" and nli_kw_raw >= 0.30 and nli_con_raw < 0.05:
-            decision = "accept"
-            source   = "nli_kw_upgraded"
-            reason   = f"NLI warn->accept: kw={nli_kw_raw:.2f} >= 0.30, con={nli_con_raw:.2f} < 0.05"
-        else:
-            decision = nli_dec_raw
-            source   = "nli"
-            reason   = (f"NLI: sup={nli_sup_raw:.2f}, con={nli_con_raw:.2f}")
+        decision   = nli_dec_raw
         confidence = max(nli_sup_raw, nli_con_raw)
         h_score    = nli_hallucination_score(nli_result)
+        source     = "nli"
+        reason     = f"NLI: sup={nli_sup_raw:.2f}, con={nli_con_raw:.2f}"
 
-    elif routing == "ensemble" and bert_ok and nli_ok:
+    elif bert_ok and nli_ok:
+        # Ensemble — ağırlıklı fusion + uyuşmazlık tespiti
         fusion     = fuse(bert_result, nli_result)
         decision   = fusion["decision"]
         confidence = fusion["confidence"]
         source     = fusion["source"]
         reason     = fusion["reason"]
-        h_score    = (bert_hallucination_score(bert_result) +
-                      nli_hallucination_score(nli_result)) / 2
+        h_score    = BERT_WEIGHT * bert_hallucination_score(bert_result) + \
+                     NLI_WEIGHT  * nli_hallucination_score(nli_result)
 
     elif bert_ok:
         # NLI başarısız, BERT'e fall back
