@@ -23,13 +23,25 @@ nltk.download('punkt_tab', quiet=True)
 from nltk.tokenize import sent_tokenize
 
 import os
+# ---------------------------------------------------------------------------
+# Embedding modeli — modül import edildiğinde bir kez yüklenir (startup'ta)
+# ---------------------------------------------------------------------------
 _emb_model = None
 def get_emb_model():
     global _emb_model
     if _emb_model is None:
         from sentence_transformers import SentenceTransformer
-        _emb_model = SentenceTransformer('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
+        _emb_model = SentenceTransformer(
+            'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2'
+        )
     return _emb_model
+
+# Modeli hemen yükle — ilk istek geldiğinde gecikme yaşanmasın
+try:
+    get_emb_model()
+except Exception as _emb_load_err:
+    import logging as _lg
+    _lg.getLogger(__name__).warning("Embedding modeli yuklenemedi: %s", _emb_load_err)
 BERT_URL = os.getenv("BERT_URL", "http://localhost:8001")
 NLI_URL  = os.getenv("NLI_URL",  "http://localhost:8002")
 
@@ -149,9 +161,14 @@ async def fuse(client: httpx.AsyncClient, context: str, answer: str, bert: dict,
     
     if ctx_sents and ans_sents:
         try:
+            import functools
+            loop = asyncio.get_event_loop()
             emb_model = get_emb_model()
-            ctx_embs = emb_model.encode(ctx_sents)
-            ans_embs = emb_model.encode(ans_sents)
+            # CPU-yoğun encode işlemini thread pool'a gönder — event loop'u bloke etme
+            ctx_embs, ans_embs = await asyncio.gather(
+                loop.run_in_executor(None, functools.partial(emb_model.encode, ctx_sents)),
+                loop.run_in_executor(None, functools.partial(emb_model.encode, ans_sents)),
+            )
             
             ctx_norms = np.linalg.norm(ctx_embs, axis=1, keepdims=True)
             ans_norms = np.linalg.norm(ans_embs, axis=1, keepdims=True)
