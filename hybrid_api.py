@@ -107,6 +107,7 @@ class DetectResult(BaseModel):
     latency_ms:         float
     bert:               Optional[dict]
     nli:                Optional[dict]
+    embedding:          Optional[dict] = None
 
 class BatchDetectRequest(BaseModel):
     items: List[DetectRequest] = Field(..., max_length=50)

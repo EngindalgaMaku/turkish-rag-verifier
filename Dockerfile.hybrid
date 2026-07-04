@@ -35,6 +35,7 @@ WORKDIR /app
 COPY requirements-hybrid.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 RUN python -m nltk.downloader punkt
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')"
 
 # Uygulama kodlari
 COPY bert_api.py ./
