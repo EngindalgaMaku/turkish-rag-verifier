@@ -64,7 +64,7 @@ textarea{resize:vertical;min-height:55px}
 .rti{font-size:17px}.rtt{flex:1}.rtt strong{display:block;font-size:12px}.rtt span{font-size:11px;color:var(--muted)}
 .expl{background:var(--panel);border-left:3px solid var(--hc);border-radius:0 5px 5px 0;padding:6px 9px;font-size:11px;color:var(--muted);margin-top:6px}
 .empty{text-align:center;color:var(--muted);padding:40px;font-size:13px}
-.sg{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.sg{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
 .sc{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:9px;text-align:center}
 .sv{font-size:19px;font-weight:700;font-family:monospace}.sl{font-size:10px;color:var(--muted);margin-top:2px}
 .bt2{width:100%;border-collapse:collapse;font-size:11px}
@@ -681,11 +681,14 @@ function toggleCM(mode){
   if(pcm){
     renderCM(pcm);
     renderPCM(pcm);
-    const macroF1Card=document.getElementById('stat-macro-f1');
-    if(macroF1Card){
-      macroF1Card.innerHTML=(pcm.macroF1*100).toFixed(0)+'%';
-      const mf1col=pcm.macroF1>=0.8?'#10b981':pcm.macroF1>=0.5?'#f59e0b':'#ef4444';
-      macroF1Card.style.color=mf1col;
+    const weightedF1Card=document.getElementById('stat-weighted-f1');
+    if(weightedF1Card){
+      let totalSup=pcm.LABELS.reduce((s,l)=>s+(pcm.metrics[l].support||0),0);
+      let wSum=pcm.LABELS.reduce((s,l)=>s+((pcm.metrics[l].f1||0)*(pcm.metrics[l].support||0)),0);
+      let weightedF1=totalSup>0?wSum/totalSup:0;
+      weightedF1Card.innerHTML=(weightedF1*100).toFixed(0)+'%';
+      const wf1col=weightedF1>=0.8?'#10b981':weightedF1>=0.5?'#f59e0b':'#ef4444';
+      weightedF1Card.style.color=wf1col;
     }
   }
 }
@@ -810,18 +813,21 @@ async function runBatch(){
     _activeCMMode = "soft";
     
     const activePCM = _pcmSoft;
-    const macroF1Str=activePCM?(activePCM.macroF1*100).toFixed(0)+'%':'—';
-    const macroF1Col=activePCM?(activePCM.macroF1>=0.8?'#10b981':activePCM.macroF1>=0.5?'#f59e0b':'#ef4444'):'var(--muted)';
+    let totalSup=activePCM ? activePCM.LABELS.reduce((s,l)=>s+(activePCM.metrics[l].support||0),0) : 0;
+    let wSum=activePCM ? activePCM.LABELS.reduce((s,l)=>s+((activePCM.metrics[l].f1||0)*(activePCM.metrics[l].support||0)),0) : 0;
+    let weightedF1=totalSup>0?wSum/totalSup:0;
+    const weightedF1Str=activePCM?(weightedF1*100).toFixed(0)+'%':'—';
+    const weightedF1Col=activePCM?(weightedF1>=0.8?'#10b981':weightedF1>=0.5?'#f59e0b':'#ef4444'):'var(--muted)';
     
     const stats=[
       {val:d.count,lbl:'Toplam',col:'var(--text)'},
       {val:s.accuracy!==null?(s.accuracy*100).toFixed(0)+'%':'—',lbl:'Dogruluk',col:'#10b981'},
-      {val:macroF1Str,lbl:'Macro F1',col:macroF1Col},
+      {val:weightedF1Str,lbl:'Weighted F1',col:weightedF1Col},
       {val:(s.avg_hallucination_score*100).toFixed(0)+'%',lbl:'Ort. H-Score',col:'#38bdf8'},
       {val:s.n_with_gold,lbl:'Gold Etiketli',col:'var(--muted)'}
     ];
     for(const st of stats) {
-      const idAttr = st.lbl === 'Macro F1' ? ' id="stat-macro-f1"' : '';
+      const idAttr = st.lbl === 'Weighted F1' ? ' id="stat-weighted-f1"' : '';
       sg.innerHTML+='<div class="sc"><div class="sv" style="color:'+st.col+'"'+idAttr+'>'+st.val+'</div><div class="sl">'+st.lbl+'</div></div>';
     }
     
