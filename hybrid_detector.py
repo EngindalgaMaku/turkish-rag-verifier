@@ -216,7 +216,7 @@ def fuse(bert: dict, nli: dict) -> dict:
 
 async def call_bert(client: httpx.AsyncClient, payload: dict) -> Optional[dict]:
     try:
-        r = await client.post(f"{BERT_URL}/classify", json=payload, timeout=15.0)
+        r = await client.post(f"{BERT_URL}/classify", json=payload, timeout=40.0)
         r.raise_for_status()
         return r.json()
     except Exception as e:
@@ -225,7 +225,7 @@ async def call_bert(client: httpx.AsyncClient, payload: dict) -> Optional[dict]:
 
 async def call_nli(client: httpx.AsyncClient, payload: dict) -> Optional[dict]:
     try:
-        r = await client.post(f"{NLI_URL}/score", json=payload, timeout=15.0)
+        r = await client.post(f"{NLI_URL}/score", json=payload, timeout=40.0)
         r.raise_for_status()
         return r.json()
     except Exception as e:

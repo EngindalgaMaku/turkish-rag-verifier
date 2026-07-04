@@ -179,8 +179,9 @@ async def detect_endpoint(req: DetectRequest):
 async def batch_detect(req: BatchDetectRequest):
     t0 = time.time()
 
-    tasks = [
-        detect(
+    results = []
+    for item in req.items:
+        res = await detect(
             context=item.context,
             answer=item.answer,
             question=item.question,
@@ -188,9 +189,7 @@ async def batch_detect(req: BatchDetectRequest):
             gold_label=item.gold_label,
             mode=item.mode,
         )
-        for item in req.items
-    ]
-    results = await asyncio.gather(*tasks)
+        results.append(res)
 
     # Özet istatistikler
     decisions = [r["decision"] for r in results]
