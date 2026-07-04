@@ -218,43 +218,6 @@ async def batch_detect(req: BatchDetectRequest):
 
 
 # ---------------------------------------------------------------------------
-# BERT proxy endpoints — bert_demo.html için BERT API'yi dışarıya açar
-# ---------------------------------------------------------------------------
-
-@app.get("/bert/health")
-async def bert_health_proxy():
-    """BERT API health check proxy."""
-    async with httpx.AsyncClient() as client:
-        try:
-            r = await client.get(f"{BERT_URL}/health", timeout=5.0)
-            return r.json()
-        except Exception as e:
-            return {"status": "error", "error": str(e)}
-
-
-@app.post("/bert/classify")
-async def bert_classify_proxy(request: dict):
-    """BERT API tekli sınıflandırma proxy."""
-    async with httpx.AsyncClient() as client:
-        try:
-            r = await client.post(f"{BERT_URL}/classify", json=request, timeout=30.0)
-            return r.json()
-        except Exception as e:
-            raise HTTPException(status_code=502, detail=str(e))
-
-
-@app.post("/bert/classify/batch")
-async def bert_classify_batch_proxy(request: dict):
-    """BERT API toplu sınıflandırma proxy."""
-    async with httpx.AsyncClient() as client:
-        try:
-            r = await client.post(f"{BERT_URL}/classify/batch", json=request, timeout=120.0)
-            return r.json()
-        except Exception as e:
-            raise HTTPException(status_code=502, detail=str(e))
-
-
-# ---------------------------------------------------------------------------
 # Run
 # ---------------------------------------------------------------------------
 

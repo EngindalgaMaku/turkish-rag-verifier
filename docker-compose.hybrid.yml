@@ -31,8 +31,6 @@ services:
     environment:
       - SERVICE=bert
       - BERT_MODEL_DIR=/app/models/bert
-      - BERT_HF_REPO=angeldust007/berturk-rag-verifier-exp020
-      - HF_TOKEN=${HF_TOKEN}
       - BERT_THRESHOLD=0.75
       - BERT_MAX_LENGTH=512
     volumes:
@@ -84,9 +82,9 @@ services:
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
       interval: 30s
-      timeout: 30s
-      retries: 5
-      start_period: 300s
+      timeout: 15s
+      retries: 3
+      start_period: 180s
     logging:
       driver: "json-file"
       options:

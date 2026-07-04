@@ -22,9 +22,12 @@ import os
 BERT_URL = os.getenv("BERT_URL", "http://localhost:8001")
 NLI_URL  = os.getenv("NLI_URL",  "http://localhost:8002")
 
-# Ağırlıklar — BERT fine-tuned olduğu için daha güvenilir
-BERT_WEIGHT = 0.65
-NLI_WEIGHT  = 0.35
+# Ağırlıklar — EXP-049 test sonuçlarına göre:
+# Bu BERT modeli (temp_out_saved_head) bu örneklerde bozuk (hepsi accept)
+# NLI: 7/10, BERT: 4/10, Ensemble: 4/10
+# NLI ağırlığı artırıldı, BERT minimize edildi
+BERT_WEIGHT = 0.15
+NLI_WEIGHT  = 0.85
 
 # Fusion eşikleri
 BERT_CONTRA_THR = 0.70   # BERT contradiction confidence

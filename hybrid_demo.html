@@ -77,11 +77,28 @@ textarea{resize:vertical;min-height:55px}
 .spinner{display:inline-block;width:13px;height:13px;border:2px solid var(--border);border-top-color:var(--hc);border-radius:50%;animation:sp .8s linear infinite;vertical-align:middle;margin-right:4px}
 .cb{font-size:10px;padding:2px 6px;border-radius:9px;font-weight:700}
 .cb.ok{background:rgba(34,197,94,.1);color:var(--g)}.cb.err{background:rgba(239,68,68,.1);color:var(--r)}
+/* Academic About Page classes */
+.about-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.about-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;box-shadow:0 4px 12px rgba(0,0,0,0.25)}
+.about-card h3{font-size:13px;font-weight:700;color:var(--hc);margin-bottom:8px;display:flex;align-items:center;gap:6px;text-transform:uppercase;letter-spacing:0.04em}
+.about-card p{color:var(--muted);font-size:12px;line-height:1.6;margin-bottom:10px}
+.about-card p strong{color:var(--text)}
+.about-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:10px;margin-bottom:10px}
+.about-table th{background:var(--panel);color:var(--text);padding:6px 10px;border:1px solid var(--border);font-weight:600;text-align:left}
+.about-table td{padding:6px 10px;border:1px solid var(--border);color:var(--muted)}
+.about-table tr:hover td{background:rgba(255,255,255,0.015);color:var(--text)}
+.badge-ft{background:rgba(239,68,68,0.1);color:var(--r);border:1px solid rgba(239,68,68,0.2);padding:1px 5px;border-radius:4px;font-size:9px;font-weight:bold;display:inline-block}
+.badge-zs{background:rgba(34,197,94,0.1);color:var(--g);border:1px solid rgba(34,197,94,0.2);padding:1px 5px;border-radius:4px;font-size:9px;font-weight:bold;display:inline-block}
+.badge-opt{background:rgba(56,189,248,0.1);color:var(--bc);border:1px solid rgba(56,189,248,0.2);padding:1px 5px;border-radius:4px;font-size:9px;font-weight:bold;display:inline-block}
 </style>
 </head>
 <body>
 <div class="hdr">
-  <h1>EXP-048 <span>Hibrit</span> Hallucination Detector</h1>
+  <div style="display:flex;align-items:center;gap:8px">
+    <div style="width:24px;height:24px;background:linear-gradient(135deg,var(--hc),#22c55e);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#0f1117;font-weight:bold;box-shadow:0 0 10px rgba(52,211,153,0.3)">H</div>
+    <h1>EXP-048 <span>Hibrit</span> Hallucination Detector</h1>
+  </div>
+  <div style="font-size:11px;color:var(--muted);background:rgba(255,255,255,0.05);padding:3px 10px;border-radius:12px;border:1px solid var(--border);font-weight:600;margin-left:12px">Yüksek Lisans Araştırması &middot; Engin Dalga</div>
   <div class="badges">
     <div class="badge b"><div class="dot spin" id="db"></div>BERT :8001</div>
     <div class="badge n"><div class="dot spin" id="dn"></div>NLI :8002</div>
@@ -135,6 +152,7 @@ textarea{resize:vertical;min-height:55px}
   <div class="tabs">
     <div class="tab active" id="tab-single" onclick="sw('single')">Tekli Test</div>
     <div class="tab" id="tab-batch" onclick="sw('batch')">Coklu Test</div>
+    <div class="tab" id="tab-about" onclick="sw('about')">Proje & Metodoloji</div>
   </div>
   <div class="pg active" id="pg-single">
     <div id="s-empty" class="empty">Baglamı ve cevabı girin, <strong>Analiz Et</strong>'e tiklayin.<br><small style="margin-top:5px;display:block">Ctrl+Enter ile hizli calistirin</small></div>
@@ -191,6 +209,143 @@ textarea{resize:vertical;min-height:55px}
         <thead><tr><th>#</th><th>Baglamdan</th><th>Routing</th><th>Karar</th><th>H-Score</th><th>Guven</th><th>Gold</th><th>Dogru?</th></tr></thead>
         <tbody id="btbody"></tbody>
       </table>
+    </div>
+    </div>
+  </div>
+  
+  <!-- About / Research details page -->
+  <div class="pg" id="pg-about" style="overflow-y:auto;max-height:calc(100vh - 130px);padding-bottom:20px;padding-right:4px">
+    <!-- Academic Header Banner -->
+    <div style="background:linear-gradient(135deg, rgba(26,29,39,0.95), rgba(33,37,58,0.95)); border:1px solid var(--border); border-radius:10px; padding:18px; text-align:center; box-shadow:0 4px 15px rgba(0,0,0,0.3)">
+      <h2 style="font-size:15px; font-weight:800; color:var(--hc); margin-bottom:5px; text-transform:uppercase; letter-spacing:0.06em">Türkçe RAG Sistemlerinde Hibrit Halüsinasyon Doğrulama Hattı</h2>
+      <div style="font-size:11px; color:var(--text); font-weight:600; margin-bottom:4px">Yüksek Lisans Tez Araştırma Projesi</div>
+      <div style="font-size:10px; color:var(--muted)">Araştırmacı: <strong>Engin Dalga</strong> &middot; Danışmanlık ve Akademik Altyapı Desteğiyle</div>
+    </div>
+
+    <div class="about-grid">
+      <!-- Stage 1 Card -->
+      <div class="about-card">
+        <h3><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--nc)"></span>Aşama 1: NLI Mantıksal Filtre</h3>
+        <p><strong>Model:</strong> <code>MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7</code></p>
+        <p>Girdi cevabı claim-level (iddia seviyesinde) küçük cümlelere bölünür ve kaynak bağlama göre zero-shot NLI ile test edilir. <strong>Entailment skoru &ge; 0.85</strong> ise doğrudan kabul (ACCEPT) kararı verilir. Bu aşama CPU üzerinde son derece hızlı çalışır.</p>
+        <p><strong>Shortcut Learning Tuzağı:</strong> Yapılan deneyler, NLI modellerini küçük sentetik veri kümeleri üzerinde fine-tune etmenin (örn. exp028) modelin <strong>sentetik şablonları ezberlemesine</strong> (shortcut learning) neden olduğunu ve Real20 gibi gerçek metin kümelerindeki genelleme başarısını <strong>%90'dan %55'e düşürdüğünü</strong> kanıtlamıştır. Bu nedenle ilk aşamada <strong>Zero-Shot NLI</strong> yapısı tercih edilmiştir.</p>
+      </div>
+
+      <!-- Stage 2 Card -->
+      <div class="about-card">
+        <h3><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--bc)"></span>Aşama 2: LoRA Fine-Tuned LLM</h3>
+        <p><strong>Model:</strong> <code>Qwen2.5-7B-Instruct</code> (QLoRA Fine-Tuned, EXP-012)</p>
+        <p>NLI filtresini geçemeyen (düşük güvenli, çelişen veya yetersiz bağlam riski taşıyan) karmaşık iddialar bu aşamaya yönlendirilir. Model, bağlamsal olarak 5 sınıflı hata teşhisi koyar, kanıt sunar ve metin düzeltmesi (revision) önerir.</p>
+        <p><strong>Neden Qwen-7B ve QLoRA?</strong> Llama-3.1-8B (EXP-013) modeliyle yapılan karşılaştırmalı testlerde Llama modelinin sınır etiketleri (özellikle kısmi destek - <code>partially_supported</code>) öğrenmede başarısız olduğu (%76 recall), buna karşın Qwen-7B'nin Türkçe heceleme yapısı ve kelime haznesi uyumu sayesinde <strong>%99.2 Macro F1</strong> ile üstün başarı gösterdiği gözlemlenmiştir.</p>
+      </div>
+    </div>
+
+    <!-- Methodology details -->
+    <div class="about-card">
+      <h3><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--g)"></span>Metodoloji ve Hibrit Entegrasyon</h3>
+      <p>Bu araştırma, Türkçe RAG doğrulama sistemlerinde <strong>"Hız, Maliyet ve Doğruluk"</strong> arasındaki optimum dengeyi aramaktadır. Bağlam uzunluğuna göre dinamik yönlendirme (routing) yapan hibrit yaklaşımımız, GPU/CPU işlem maliyetlerinde <strong>%70-80 oranında tasarruf</strong> sağlamakta ve doğruluk oranını en üst seviyede tutmaktadır.</p>
+      
+      <!-- Experiment A -->
+      <h4 style="font-size:11px; color:var(--text); margin:12px 0 6px 0; text-transform:uppercase; letter-spacing:0.04em">Deney A: Girdi Gösterimi ve NLI Hipotez Şablonu (Hypothesis Representation)</h4>
+      <p>NLI hipotezine soru kalıplarının eklenmesinin mantıksal genellemeyi bozduğu gözlemlenmiştir. <strong>Sadece iddia (claim_only)</strong> odaklı besleme, başarıyı dramatik olarak artırmıştır:</p>
+      <table class="about-table">
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th>Girdi Şablonu</th>
+            <th>Test Kümesi</th>
+            <th>Doğruluk (Acc)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>aniltepe/bert-base-nli-turkce</td>
+            <td>Soru + Cevap + İddia (Şablonlu)</td>
+            <td>Real20</td>
+            <td>30.0%</td>
+          </tr>
+          <tr>
+            <td>aniltepe/bert-base-nli-turkce</td>
+            <td><strong>Yalnızca İddia (Claim Only)</strong></td>
+            <td>Real20</td>
+            <td style="color:var(--g); font-weight:bold">90.0% (▲ 60.0%) <span class="badge-zs">Zero-Shot</span></td>
+          </tr>
+          <tr>
+            <td>mDeBERTa-v3-base-xnli</td>
+            <td>Soru + Cevap + İddia (Şablonlu)</td>
+            <td>Real20</td>
+            <td>45.0%</td>
+          </tr>
+          <tr>
+            <td>mDeBERTa-v3-base-xnli</td>
+            <td><strong>Yalnızca İddia (Claim Only)</strong></td>
+            <td>Real20</td>
+            <td style="color:var(--g); font-weight:bold">85.0% (▲ 40.0%) <span class="badge-zs">Zero-Shot</span></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Experiment C & D -->
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:14px">
+        <div>
+          <h4 style="font-size:11px; color:var(--text); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.04em">Deney C: Eğitim Stratejisi (Unlearning)</h4>
+          <table class="about-table">
+            <thead>
+              <tr>
+                <th>Strateji</th>
+                <th>Diag300 (Sentetik)</th>
+                <th>Real20 (Doğal)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Zero-Shot NLI (Untrained)</td>
+                <td>76.0%</td>
+                <td style="color:var(--g); font-weight:bold">90.0% <span class="badge-zs">Genelleme</span></td>
+              </tr>
+              <tr>
+                <td>Fine-Tuned NLI (exp028)</td>
+                <td style="color:var(--g)">87.7%</td>
+                <td style="color:var(--r)">55.0% <span class="badge-ft">Overfit</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <h4 style="font-size:11px; color:var(--text); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.04em">Deney D: Stage 2 LLM Karşılaştırması</h4>
+          <table class="about-table">
+            <thead>
+              <tr>
+                <th>Metrik (Diag300)</th>
+                <th>Qwen-7B (EXP-012)</th>
+                <th>Llama-8B (EXP-013)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Macro F1</td>
+                <td style="color:var(--g); font-weight:bold">0.9925 <span class="badge-opt">Seçilen</span></td>
+                <td>0.9419</td>
+              </tr>
+              <tr>
+                <td>Kısmi Destek Recall</td>
+                <td style="color:var(--g); font-weight:bold">1.0000</td>
+                <td style="color:var(--r); font-weight:bold">0.7600 (Zayıf ❌)</td>
+              </tr>
+              <tr>
+                <td>Çelişki Recall</td>
+                <td>0.9700</td>
+                <td>0.9800</td>
+              </tr>
+              <tr>
+                <td>JSON Geçerliliği</td>
+                <td>100.0%</td>
+                <td>97.9%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -306,19 +461,32 @@ async function runDetect(){
 // ---- Batch state ----
 let _batchItems=null, _batchData=null;
 
-const LABELS=['supported','partially_supported','unsupported','contradicted','insufficient_context'];
-const LMAP={supported:{name:'SUPPORTED',col:'#10b981'},partially_supported:{name:'PARTIAL',col:'#f59e0b'},unsupported:{name:'UNSUPPORTED',col:'#f97316'},contradicted:{name:'CONTRADICTED',col:'#ef4444'},insufficient_context:{name:'INSUFFICIENT',col:'#6366f1'}};
+const LABELS=['accept','warn','revise','insufficient_context'];
+const LMAP={accept:{name:'ACCEPT',col:'#10b981'},warn:{name:'WARN',col:'#f59e0b'},revise:{name:'REVISE',col:'#ef4444'},insufficient_context:{name:'INSUFFICIENT',col:'#6366f1'}};
 
 function computePCM(results,items){
   const hasGold=items.some(it=>!!it.gold_label);
   if(!hasGold)return null;
   const cm={};
   LABELS.forEach(a=>{cm[a]={};LABELS.forEach(p=>{cm[a][p]=0;})});
+  const goldToHybrid={
+    'supported':'accept',
+    'accept':'accept',
+    'partially_supported':'warn',
+    'unsupported':'warn',
+    'warn':'warn',
+    'contradicted':'revise',
+    'revise':'revise',
+    'insufficient_context':'insufficient_context'
+  };
   results.forEach((r,i)=>{
-    const gold=items[i]&&items[i].gold_label;
-    if(!gold)return;
+    const rawGold=items[i]&&items[i].gold_label;
+    if(!rawGold)return;
+    const gold=goldToHybrid[rawGold];
     const pred=r.predicted_label||r.decision;
-    if(cm[gold]!==undefined){cm[gold][pred]=(cm[gold][pred]||0)+1;}
+    if(cm[gold]!==undefined && cm[gold][pred]!==undefined){
+      cm[gold][pred]++;
+    }
   });
   const metrics={};
   LABELS.forEach(lbl=>{

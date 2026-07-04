@@ -1023,7 +1023,7 @@
       <div class="shdr">Bağlantı</div>
       <label>API Adresi (bert_api.py — port 8001)</label>
       <div class="apirow">
-        <input type="text" id="apiUrl" value="" oninput="scheduleHealthCheck()"/>
+        <input type="text" id="apiUrl" value="http://localhost:8001" oninput="scheduleHealthCheck()"/>
       </div>
       <button class="btn btn-ghost btn-full btn-load" id="loadBtn" onclick="loadModel()">
         ⚡ Modeli Belleğe Yükle
@@ -1117,7 +1117,7 @@
       </button>
     </div>
     
-    <div id="batchResultContent" style="display:none; margin-top:20px;">
+    <div id="batchResultContent" style="display:none; margin-top:20px;" data-version="v2">
       <!-- Batch summary metrics -->
       <div class="score-panel">
         <div class="score-title">İstatistikler ve Metrikler</div>
@@ -1678,8 +1678,11 @@
 
   function computePerClassMetrics(results, items) {
     const LABELS = ['supported','partially_supported','unsupported','contradicted','insufficient_context'];
-    // Check if gold labels exist
-    const hasGold = results.some((r, i) => items[i] && items[i].gold_label);
+    // Check if gold labels exist — check both items array and API is_correct field
+    const hasGold = results.some((r, i) => {
+      const gold = (items[i] && items[i].gold_label) || r._gold;
+      return !!gold;
+    }) || items.some(it => !!it.gold_label);
     if (!hasGold) return null;
 
     // Build confusion matrix: cm[actual][predicted]
@@ -1687,10 +1690,11 @@
     LABELS.forEach(a => { cm[a] = {}; LABELS.forEach(p => { cm[a][p] = 0; }); });
 
     results.forEach((r, i) => {
-      const gold = items[i] && items[i].gold_label;
+      const gold = (items[i] && items[i].gold_label) || r._gold;
       if (!gold) return;
       const pred = r.predicted_label;
-      if (cm[gold] && cm[gold][pred] !== undefined) cm[gold][pred]++;
+      if (cm[gold] !== undefined && cm[gold][pred] !== undefined) cm[gold][pred]++;
+      else if (cm[gold] !== undefined) { cm[gold][pred] = (cm[gold][pred] || 0) + 1; }
     });
 
     // Per-class P/R/F1
@@ -1930,20 +1934,7 @@
     showNotif(`Toplu tahmin tamamlandı (${totalElapsed} ms).`, "ok");
   }
 
-  // Init — API URL'yi otomatik ayarla
-  (function initApiUrl() {
-    const el = document.getElementById('apiUrl');
-    if (!el.value) {
-      // Coolify'da window.location.origin + '/bert', local'de localhost:8001
-      const origin = window.location.origin;
-      if (origin.startsWith('http://localhost') || origin.startsWith('http://127.')) {
-        el.value = 'http://localhost:8001';
-      } else {
-        el.value = origin + '/bert';
-      }
-    }
-  })();
-
+  // Init
   checkHealth();
   setInterval(checkHealth, 30000);
   updateHistoryBadge();

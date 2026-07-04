@@ -27,7 +27,7 @@ from typing import List, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse, RedirectResponse
 from pydantic import BaseModel, Field
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -93,14 +93,23 @@ def get_model():
         import torch
         from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
+        # HF repo ID (org/model) veya local dizin desteklenir
         model_path = Path(MODEL_DIR)
-        if not model_path.exists():
-            _load_error = f"Model directory not found: {model_path}"
-            raise FileNotFoundError(_load_error)
+        if model_path.exists():
+            model_id = str(model_path)
+        else:
+            # HF repo ID olarak dene (org/model formatı)
+            model_id = MODEL_DIR
 
         t0 = time.time()
-        _tokenizer = AutoTokenizer.from_pretrained(str(model_path))
-        _model = AutoModelForSequenceClassification.from_pretrained(str(model_path))
+        # Tokenizer: once model_id'den dene, yoksa base model'den al
+        try:
+            _tokenizer = AutoTokenizer.from_pretrained(model_id)
+        except Exception:
+            # Local model tokenizer dosyasi olmayabilir — base model'den al
+            base_model = os.getenv("BERT_BASE_MODEL", "microsoft/mdeberta-v3-base")
+            _tokenizer = AutoTokenizer.from_pretrained(base_model)
+        _model = AutoModelForSequenceClassification.from_pretrained(model_id)
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
         _model.to(device)
