@@ -23,3 +23,4 @@ safetensors==0.4.3
 # Yardimci
 numpy==1.26.4
 scipy==1.13.0
+nltk==3.9.1

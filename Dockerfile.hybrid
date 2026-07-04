@@ -34,6 +34,7 @@ WORKDIR /app
 # Once requirements (layer cache icin)
 COPY requirements-hybrid.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
+RUN python -m nltk.downloader punkt
 
 # Uygulama kodlari
 COPY bert_api.py ./
