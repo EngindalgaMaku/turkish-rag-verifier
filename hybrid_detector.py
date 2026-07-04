@@ -35,13 +35,6 @@ def get_emb_model():
             'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2'
         )
     return _emb_model
-
-# Modeli hemen yükle — ilk istek geldiğinde gecikme yaşanmasın
-try:
-    get_emb_model()
-except Exception as _emb_load_err:
-    import logging as _lg
-    _lg.getLogger(__name__).warning("Embedding modeli yuklenemedi: %s", _emb_load_err)
 BERT_URL = os.getenv("BERT_URL", "http://localhost:8001")
 NLI_URL  = os.getenv("NLI_URL",  "http://localhost:8002")
 

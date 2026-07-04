@@ -26,10 +26,32 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from contextlib import asynccontextmanager
+import asyncio, logging, threading
 
-from hybrid_detector import detect, route, BERT_URL, NLI_URL
+from hybrid_detector import detect, route, BERT_URL, NLI_URL, get_emb_model
 
 import httpx
+
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Lifespan — uvicorn hazir olduktan sonra embedding modelini arka planda yukle
+# ---------------------------------------------------------------------------
+
+def _warmup_emb():
+    try:
+        get_emb_model()
+        logger.info("Embedding modeli basariyla yuklendi.")
+    except Exception as e:
+        logger.warning("Embedding modeli yuklenemedi: %s", e)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: modeli ayri bir thread'de yukle, health check'i bloke etme
+    threading.Thread(target=_warmup_emb, daemon=True, name="emb-warmup").start()
+    yield
+    # Shutdown: ekstra temizlik gerekmez
 
 # ---------------------------------------------------------------------------
 # App
@@ -39,6 +61,7 @@ app = FastAPI(
     title="Hybrid Hallucination Detector",
     description="BERT (berturk_exp020) + NLI (mDeBERTa) hibrit pipeline — EXP-048",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
