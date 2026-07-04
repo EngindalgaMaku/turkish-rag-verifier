@@ -190,8 +190,17 @@ textarea{resize:vertical;min-height:55px}
     <div id="b-cm-wrap" style="display:none;margin-top:15px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:8px;padding:15px">
       <div style="font-size:11px;font-weight:700;color:var(--hc);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Karışıklık Matrisi (Confusion Matrix) &amp; Analiz Rehberi</div>
       <div style="display:flex;gap:7px;margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:8px">
-        <button class="mb active" id="btn-cm-strict" onclick="toggleCM('strict')" style="padding:4px 12px;font-size:10px;border-radius:4px;border:1px solid var(--border);cursor:pointer;flex:0 0 auto;width:auto">Katı (Strict) Matris</button>
-        <button class="mb" id="btn-cm-soft" onclick="toggleCM('soft')" style="padding:4px 12px;font-size:10px;border-radius:4px;border:1px solid var(--border);cursor:pointer;flex:0 0 auto;width:auto">Esnek (Soft) Matris</button>
+        <button class="mb" id="btn-cm-strict" onclick="toggleCM('strict')" style="padding:4px 12px;font-size:10px;border-radius:4px;border:1px solid var(--border);cursor:pointer;flex:0 0 auto;width:auto">Katı (Strict) Matris</button>
+        <button class="mb active" id="btn-cm-soft" onclick="toggleCM('soft')" style="padding:4px 12px;font-size:10px;border-radius:4px;border:1px solid var(--border);cursor:pointer;flex:0 0 auto;width:auto">Esnek (Soft) Matris</button>
+      </div>
+      <!-- Esnek Değerlendirme Açıklama Notu -->
+      <div id="cm-soft-note" style="display:block;background:rgba(245,158,11,0.05); border:1px dashed rgba(245,158,11,0.3); border-radius:6px; padding:10px 12px; margin-bottom:12px; font-size:11px; color:#f59e0b; line-height:1.4">
+        <strong>ℹ️ Esnek (Soft) Değerlendirme Politikası:</strong> Sistemin genel doğruluğunu ölçerken, uç/sınır etiketlerdeki kabul edilebilir şu tahminler de doğru (True Positive) kabul edilir:
+        <ul style="margin:5px 0 0 15px; padding:0">
+          <li><strong>Kısmen Desteklenen (partially_supported)</strong> durumlar için modelin <code>WARN</code> veya <code>REVISE</code> kararları,</li>
+          <li><strong>Desteklenmeyen (unsupported)</strong> durumlar için modelin <code>WARN</code>, <code>REVISE</code> veya <code>INSUFFICIENT</code> kararları kabul edilir.</li>
+        </ul>
+        Bu esneklik, RAG ve metin doğrulama pratiklerinde "şüpheli" veya "revize edilmesi gereken" durumların birbirinin yerine kabul edilebilir olmasından kaynaklanır.
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:15px;align-items:start">
         <div>
@@ -607,6 +616,8 @@ function toggleCM(mode){
   _activeCMMode=mode;
   document.getElementById('btn-cm-strict').classList.toggle('active',mode==='strict');
   document.getElementById('btn-cm-soft').classList.toggle('active',mode==='soft');
+  const noteEl = document.getElementById('cm-soft-note');
+  if(noteEl) noteEl.style.display=(mode==='soft'?'block':'none');
   const pcm=mode==='strict'?_pcmStrict:_pcmSoft;
   if(pcm){
     renderCM(pcm);
@@ -727,9 +738,9 @@ async function runBatch(){
     const pcm=computePCM(d.results,items);
     _pcmStrict = pcm ? pcm.strict : null;
     _pcmSoft = pcm ? pcm.soft : null;
-    _activeCMMode = "strict";
+    _activeCMMode = "soft";
     
-    const activePCM = _pcmStrict;
+    const activePCM = _pcmSoft;
     const macroF1Str=activePCM?(activePCM.macroF1*100).toFixed(0)+'%':'—';
     const macroF1Col=activePCM?(activePCM.macroF1>=0.8?'#10b981':activePCM.macroF1>=0.5?'#f59e0b':'#ef4444'):'var(--muted)';
     
@@ -747,8 +758,10 @@ async function runBatch(){
     
     const btnStrict = document.getElementById('btn-cm-strict');
     const btnSoft = document.getElementById('btn-cm-soft');
-    if(btnStrict) btnStrict.className = "mb active";
-    if(btnSoft) btnSoft.className = "mb";
+    if(btnStrict) btnStrict.className = "mb";
+    if(btnSoft) btnSoft.className = "mb active";
+    const noteEl = document.getElementById('cm-soft-note');
+    if(noteEl) noteEl.style.display = "block";
 
     // Dagilim bar
     const bar=document.getElementById('b-dist-bar');const leg=document.getElementById('b-dist-legend');
@@ -763,8 +776,8 @@ async function runBatch(){
       const l=document.createElement('span');l.innerHTML='<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+col+';margin-right:3px"></span>'+dec+': '+cnt+' ('+pct+'%)';leg.appendChild(l);
     });
     document.getElementById('b-stats').style.display='block';
-    // Per-class + CM (Katı varsayılan)
-    renderPCM(_pcmStrict);renderCM(_pcmStrict);
+    // Per-class + CM (Esnek varsayılan)
+    renderPCM(_pcmSoft);renderCM(_pcmSoft);
     // Export goster
     const expWrap=document.getElementById('b-export-wrap');if(expWrap)expWrap.style.display='flex';
     // Detay tablosu
