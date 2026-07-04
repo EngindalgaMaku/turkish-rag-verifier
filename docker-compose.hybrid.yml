@@ -31,6 +31,8 @@ services:
     environment:
       - SERVICE=bert
       - BERT_MODEL_DIR=/app/models/bert
+      - BERT_HF_REPO=angeldust007/berturk-rag-verifier-exp020
+      - HF_TOKEN=${HF_TOKEN}
       - BERT_THRESHOLD=0.75
       - BERT_MAX_LENGTH=512
     volumes:
