@@ -216,6 +216,35 @@ async def batch_detect(req: BatchDetectRequest):
     )
 
 
+@app.get("/config")
+async def get_config():
+    async with httpx.AsyncClient() as client:
+        try:
+            r = await client.get(f"{NLI_URL}/config", timeout=5.0)
+            if r.status_code == 200:
+                return r.json()
+        except Exception:
+            pass
+    return {
+        "p_contra": 0.3,
+        "p_high": 0.8,
+        "p_mid": 0.3,
+        "t_kw": 0.05
+    }
+
+
+@app.post("/config")
+async def update_config(data: dict):
+    async with httpx.AsyncClient() as client:
+        try:
+            r = await client.post(f"{NLI_URL}/config", json=data, timeout=5.0)
+            if r.status_code == 200:
+                return r.json()
+        except Exception as e:
+            return {"status": "error", "detail": str(e)}
+    return {"status": "error", "detail": "NLI service down"}
+
+
 # ---------------------------------------------------------------------------
 # Run
 # ---------------------------------------------------------------------------

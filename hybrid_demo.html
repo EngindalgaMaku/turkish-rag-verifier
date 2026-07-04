@@ -118,6 +118,28 @@ textarea{resize:vertical;min-height:55px}
     </div>
   </div>
   <div>
+    <div class="st">NLI Eşik Parametreleri</div>
+    <div style="background:rgba(255,255,255,0.02); border:1px solid var(--border); border-radius:6px; padding:10px; display:flex; flex-direction:column; gap:6px">
+      <div style="display:flex; justify-content:space-between; align-items:center">
+        <label style="font-size:10px; color:var(--muted); font-weight:600">P_CONTRA (Çelişki)</label>
+        <input type="number" id="p_contra" step="0.05" min="0" max="1" style="width:60px; font-size:10px; padding:3px 6px; background:#1e293b; border:1px solid var(--border); color:#fff; border-radius:4px" onchange="saveNLIConfig(false)">
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center">
+        <label style="font-size:10px; color:var(--muted); font-weight:600">P_HIGH (Destek Yük.)</label>
+        <input type="number" id="p_high" step="0.05" min="0" max="1" style="width:60px; font-size:10px; padding:3px 6px; background:#1e293b; border:1px solid var(--border); color:#fff; border-radius:4px" onchange="saveNLIConfig(false)">
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center">
+        <label style="font-size:10px; color:var(--muted); font-weight:600">P_MID (Destek Ort.)</label>
+        <input type="number" id="p_mid" step="0.05" min="0" max="1" style="width:60px; font-size:10px; padding:3px 6px; background:#1e293b; border:1px solid var(--border); color:#fff; border-radius:4px" onchange="saveNLIConfig(false)">
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center">
+        <label style="font-size:10px; color:var(--muted); font-weight:600">T_KW (Örtüşme)</label>
+        <input type="number" id="t_kw" step="0.01" min="0" max="1" style="width:60px; font-size:10px; padding:3px 6px; background:#1e293b; border:1px solid var(--border); color:#fff; border-radius:4px" onchange="saveNLIConfig(false)">
+      </div>
+      <button class="rb" onclick="saveNLIConfig(true)" style="font-size:10px; padding:4px 0; border-radius:4px; background:rgba(16,185,129,0.1); color:#10b981; border:1px solid rgba(16,185,129,0.3); margin-top:2px; font-weight:700">Kaydet ve Uygula</button>
+    </div>
+  </div>
+  <div>
     <div class="st">Girdi</div>
     <div style="display:flex;flex-direction:column;gap:6px">
       <div><label>Baglamı (kaynak metin)</label><textarea id="ctx" rows="4" placeholder="Kaynak metin..."></textarea></div>
@@ -511,7 +533,44 @@ async function checkHealth(){
     const r=await fetch(url+'/health',{signal:AbortSignal.timeout(3000)});
     const d=await r.json();
     setDot('db',d.bert_ok);setDot('dn',d.nli_ok);setDot('dh',d.status==='ok');
+    if(d.nli_ok || d.status==='ok') {
+      fetchNLIConfig();
+    }
   }catch{setDot('db',false);setDot('dn',false);setDot('dh',false)}
+}
+
+async function fetchNLIConfig(){
+  const url=document.getElementById('apiUrl').value.trim();
+  try{
+    const r=await fetch(url+'/config');
+    if(r.ok){
+      const d=await r.json();
+      document.getElementById('p_contra').value = d.p_contra;
+      document.getElementById('p_high').value = d.p_high;
+      document.getElementById('p_mid').value = d.p_mid;
+      document.getElementById('t_kw').value = d.t_kw;
+    }
+  }catch(e){}
+}
+
+async function saveNLIConfig(force){
+  const url=document.getElementById('apiUrl').value.trim();
+  const payload = {
+    p_contra: parseFloat(document.getElementById('p_contra').value),
+    p_high: parseFloat(document.getElementById('p_high').value),
+    p_mid: parseFloat(document.getElementById('p_mid').value),
+    t_kw: parseFloat(document.getElementById('t_kw').value)
+  };
+  try{
+    const r=await fetch(url+'/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    if(r.ok){
+      if(force) showNotif('Eşik değerleri güncellendi ve kaydedildi','ok');
+    } else {
+      if(force) showNotif('Eşikler kaydedilemedi','err');
+    }
+  }catch(e){
+    if(force) showNotif('Hata: '+e.message,'err');
+  }
 }
 
 async function runDetect(){

@@ -249,6 +249,31 @@ async def health():
     })
 
 
+@app.get("/config", tags=["System"])
+async def get_config():
+    return {
+        "p_contra": P_CONTRA,
+        "p_high": P_HIGH,
+        "p_mid": P_MID,
+        "t_kw": T_KW
+    }
+
+
+@app.post("/config", tags=["System"])
+async def update_config(data: dict):
+    global P_CONTRA, P_HIGH, P_MID, T_KW
+    if "p_contra" in data: P_CONTRA = float(data["p_contra"])
+    if "p_high" in data: P_HIGH = float(data["p_high"])
+    if "p_mid" in data: P_MID = float(data["p_mid"])
+    if "t_kw" in data: T_KW = float(data["t_kw"])
+    return {"status": "ok", "config": {
+        "p_contra": P_CONTRA,
+        "p_high": P_HIGH,
+        "p_mid": P_MID,
+        "t_kw": T_KW
+    }}
+
+
 @app.post("/score", tags=["Scoring"])
 async def score(req: ScoreRequest):
     """Tekli NLI scoring + policy_v2 karar."""
