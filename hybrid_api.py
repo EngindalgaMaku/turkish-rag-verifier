@@ -54,27 +54,34 @@ app.add_middleware(
 
 _HERE = Path(__file__).parent
 
-# HTML dosyalari ayni klasordeyse mount et
-if (_HERE / "hybrid_demo.html").exists():
-    @app.get("/", include_in_schema=False)
-    async def root():
-        return FileResponse(_HERE / "hybrid_demo.html")
+# Ana sayfa ve kisayollar
+@app.get("/", include_in_schema=False)
+async def root():
+    f = _HERE / "hybrid_demo.html"
+    return FileResponse(f) if f.exists() else RedirectResponse("/docs")
 
-    @app.get("/demo", include_in_schema=False)
-    async def demo():
-        return FileResponse(_HERE / "hybrid_demo.html")
+@app.get("/demo", include_in_schema=False)
+async def demo():
+    f = _HERE / "hybrid_demo.html"
+    return FileResponse(f) if f.exists() else RedirectResponse("/docs")
 
-    @app.get("/bert-demo", include_in_schema=False)
-    async def bert_demo():
-        if (_HERE / "bert_demo.html").exists():
-            return FileResponse(_HERE / "bert_demo.html")
-        return RedirectResponse("/demo")
+@app.get("/bert-demo", include_in_schema=False)
+async def bert_demo_page():
+    f = _HERE / "bert_demo.html"
+    return FileResponse(f) if f.exists() else RedirectResponse("/demo")
 
-    @app.get("/nli-demo", include_in_schema=False)
-    async def nli_demo():
-        if (_HERE / "nli_demo.html").exists():
-            return FileResponse(_HERE / "nli_demo.html")
-        return RedirectResponse("/demo")
+@app.get("/nli-demo", include_in_schema=False)
+async def nli_demo_page():
+    f = _HERE / "nli_demo.html"
+    return FileResponse(f) if f.exists() else RedirectResponse("/demo")
+
+# Dogrudan dosya adi ile erisim: /hybrid_demo.html, /bert_demo.html, /nli_demo.html
+@app.get("/{filename}.html", include_in_schema=False)
+async def serve_html(filename: str):
+    f = _HERE / f"{filename}.html"
+    if f.exists():
+        return FileResponse(f)
+    return RedirectResponse("/demo")
 
 # ---------------------------------------------------------------------------
 # Schemas
