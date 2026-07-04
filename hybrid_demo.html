@@ -236,7 +236,7 @@ textarea{resize:vertical;min-height:55px}
   <div class="pg" id="pg-about" style="overflow-y:auto;max-height:calc(100vh - 130px);padding-bottom:20px;padding-right:4px">
     <!-- Academic Header Banner -->
     <div style="background:linear-gradient(135deg, rgba(26,29,39,0.95), rgba(33,37,58,0.95)); border:1px solid var(--border); border-radius:10px; padding:18px; text-align:center; box-shadow:0 4px 15px rgba(0,0,0,0.3)">
-      <h2 style="font-size:15px; font-weight:800; color:var(--hc); margin-bottom:5px; text-transform:uppercase; letter-spacing:0.06em">Türkçe RAG Sistemlerinde Hibrit Halüsinasyon Doğrulama Hattı</h2>
+      <h2 style="font-size:15px; font-weight:800; color:var(--hc); margin-bottom:5px; text-transform:uppercase; letter-spacing:0.06em">Türkçe Büyük Dil Modelleri İçin Hibrit Halüsinasyon ve Doğruluk Denetim Hattı</h2>
       <div style="font-size:11px; color:var(--text); font-weight:600; margin-bottom:4px">Yüksek Lisans Tez Araştırma Projesi</div>
       <div style="font-size:10px; color:var(--muted)">Araştırmacı: <strong>Engin Dalga</strong></div>
     </div>
@@ -265,10 +265,42 @@ textarea{resize:vertical;min-height:55px}
       <p>Tez çalışmasının sonraki aşamalarında, bu hızlı hibrit mantıksal filtreyi (BERT + NLI) geçemeyen karmaşık veya şüpheli durumlar için LoRA/QLoRA ile ince ayar yapılmış <strong>Qwen2.5-7B-Instruct</strong> gibi üretici büyük dil modellerinin (LLM) entegrasyonu planlanmaktadır. Bu katman, sadece doğrulamakla kalmayıp kanıt çıkarma (evidence extraction) ve metin düzeltme önerisi sunacaktır.</p>
     </div>
 
+    <!-- Alternatifler ve Farkımız Section -->
+    <div class="about-card" style="margin-top: 12px; margin-bottom: 12px;">
+      <h3><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--nc)"></span>Türkçe Çözümler ve Farkımız (Literatür &amp; Karşılaştırma)</h3>
+      <p>Türkçe Doğal Dil İşleme (NLP) literatüründe halüsinasyon ve doğruluk denetimi için mevcut yaklaşımlar ve bu çalışmanın getirdiği yenilikçi farklar aşağıda özetlenmiştir:</p>
+      <table class="about-table" style="margin-top: 8px;">
+        <thead>
+          <tr>
+            <th>Yaklaşım / Rakip Çözümler</th>
+            <th>Mevcut Durum ve Limitasyonlar</th>
+            <th>Bizim Çözümümüz ve Farkımız</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Genel Türkçe NLI Modelleri</strong><br><small>(Örn: aniltepe/bert-turkce-nli)</small></td>
+            <td>Genel cümle benzerliği ve temel mantıksal çıkarımlar için eğitilmişlerdir. Büyük Dil Modellerinin (LLM) iddia düzeyindeki ince halüsinasyon örüntülerini yakalayamazlar.</td>
+            <td><strong>Alana Özgü Entegrasyon:</strong> Genel mantıksal çıkarım yeteneğini, denetimli olarak ince ayar yapılmış BERT sınıflandırıcısı ile birleştirerek hibrit bir süzgeç oluştururuz.</td>
+          </tr>
+          <tr>
+            <td><strong>Büyük Dil Modeli API'leri</strong><br><small>(Örn: GPT-4o, Claude 3.5)</small></td>
+            <td>Yüksek maliyet, API gecikme süreleri (latency), veri gizliliği ihlalleri ve Türkçe dil yapısı üzerinde bazen gözden kaçan detaylar.</td>
+            <td><strong>Lokal ve Ultra-Hafif Altyapı:</strong> Tamamen yerel (on-premise) çalışabilen, CPU dostu 100M-300M parametreli modellerle sıfır maliyet ve yüksek hız sunarız.</td>
+          </tr>
+          <tr>
+            <td><strong>Morfolojik ve Kelime Eşleşmeli Sistemler</strong><br><small>(Örn: Zemberek, ROUGE/BLEU)</small></td>
+            <td>Sadece yüzeysel kelime ve n-gram benzerliği ölçerler. Anlamsal polarite değişimlerini (örn: <em>"normal"</em> ↔ <em>"yüksek"</em> zıtlığı) yakalayamazlar.</td>
+            <td><strong>Derin Semantik Analiz:</strong> Metinlerin derin anlamsal temsillerini (contextual embeddings) kullanarak kelime benzerliğinden bağımsız anlamsal çelişki tespiti yaparız.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
     <!-- Methodology details -->
     <div class="about-card">
       <h3><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--g)"></span>Metodoloji ve Hibrit Entegrasyon</h3>
-      <p>Bu araştırma, Türkçe RAG doğrulama sistemlerinde <strong>"Hız, Maliyet ve Doğruluk"</strong> arasındaki optimum dengeyi aramaktadır. Bağlam uzunluğuna göre dinamik yönlendirme (routing) yapan hibrit yaklaşımımız, GPU/CPU işlem maliyetlerinde <strong>%70-80 oranında tasarruf</strong> sağlamakta ve doğruluk oranını en üst seviyede tutmaktadır.</p>
+      <p>Bu araştırma, Türkçe büyük dil modelleri ve metin üretim sistemlerinde <strong>"Hız, Maliyet ve Doğruluk"</strong> arasındaki optimum dengeyi aramaktadır. Bağlam uzunluğuna göre dinamik yönlendirme (routing) yapan hibrit yaklaşımımız, GPU/CPU işlem maliyetlerinde <strong>%70-80 oranında tasarruf</strong> sağlamakta ve doğruluk oranını en üst seviyede tutmaktadır.</p>
       
       <!-- Experiment A -->
       <h4 style="font-size:11px; color:var(--text); margin:12px 0 6px 0; text-transform:uppercase; letter-spacing:0.04em">Deney A: Girdi Gösterimi ve NLI Hipotez Şablonu (Hypothesis Representation)</h4>
